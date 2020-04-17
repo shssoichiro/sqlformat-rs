@@ -1,0 +1,11 @@
+[package]
+name = "sqlformat"
+version = "0.1.0"
+authors = ["Josh Holmer <jholmer.in@gmail.com>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+
+[dev-dependencies]
+indoc = "0.3"

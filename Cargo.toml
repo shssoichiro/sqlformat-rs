@@ -6,6 +6,9 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+lazy_static = "1"
+maplit = "1"
+regex = "1"
 
 [dev-dependencies]
 indoc = "0.3"

@@ -2,6 +2,20 @@
 //! written in Rust. It is intended to be usable as a pure-Rust library
 //! for formatting SQL queries.
 
+mod formatter;
+mod keywords;
+mod tokenizer;
+
+/// Format a given `query`, optionally replacing parameters with values from `params`,
+/// which is a list of key-value pairs.
+/// Numeric or indexed parameters may be given with empty string keys,
+/// as long as they are in the correct order, e.g.
+/// `&[("", "value1"), ("", "value2")]`.
+pub fn format(query: &str, params: &[(String, String)], options: FormatOptions) -> String {
+    let tokens = tokenizer::tokenize(query);
+    formatter::format(&tokens, params, options)
+}
+
 /// Options for controlling how the library formats SQL
 #[derive(Debug, Clone, Copy)]
 pub struct FormatOptions {
@@ -33,15 +47,6 @@ impl Default for FormatOptions {
 pub enum Indent {
     Spaces(u8),
     Tabs,
-}
-
-/// Format a given `query`, optionally replacing parameters with values from `params`,
-/// which is a list of key-value pairs.
-/// Numeric or indexed parameters may be given with empty string keys,
-/// as long as they are in the correct order, e.g.
-/// `&[("", "value1"), ("", "value2")]`.
-pub fn format(query: &str, params: &[(String, String)], options: FormatOptions) -> String {
-    todo!();
 }
 
 #[cfg(test)]
@@ -1047,6 +1052,42 @@ mod tests {
               first,
               second,
               third;
+        "
+        );
+
+        assert_eq!(format(input, &params, options), expected);
+    }
+
+    #[test]
+    fn it_recognizes_dollar_sign_numbered_placeholders() {
+        let input = "SELECT $1, $2;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              $1,
+              $2;
+        "
+        );
+
+        assert_eq!(format(input, &[], options), expected);
+    }
+
+    #[test]
+    fn it_recognizes_dollar_sign_numbered_placeholders_with_param_values() {
+        let input = "SELECT $2, $3, $1;";
+        let params = vec![
+            (String::new(), "first".to_string()),
+            (String::new(), "second".to_string()),
+            (String::new(), "third".to_string()),
+        ];
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              second,
+              third,
+              first;
         "
         );
 

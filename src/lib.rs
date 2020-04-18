@@ -1344,8 +1344,9 @@ mod tests {
         let expected = indoc!(
             "
             SELECT
-              (a --comment
-            )"
+              (
+                a --comment
+              )"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);

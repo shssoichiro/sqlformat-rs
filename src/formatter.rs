@@ -127,7 +127,7 @@ impl<'a> Formatter<'a> {
 
         // Take out the preceding space unless there was whitespace there in the original query
         // or another opening parens or line comment
-        let previous_token = self.previous_token(None);
+        let previous_token = self.previous_token();
         if previous_token.is_none()
             || !PRESERVE_WHITESPACE_FOR.contains(&previous_token.unwrap().kind)
         {
@@ -250,8 +250,8 @@ impl<'a> Formatter<'a> {
         REGEX.replace_all(token, " ")
     }
 
-    fn previous_token(&self, offset: Option<usize>) -> Option<&Token<'_>> {
-        let index = self.index.checked_sub(offset.unwrap_or(1));
+    fn previous_token(&self) -> Option<&Token<'_>> {
+        let index = self.index.checked_sub(1);
         if let Some(index) = index {
             self.tokens.get(index)
         } else {

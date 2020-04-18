@@ -1,10 +1,6 @@
 use crate::tokenizer::Token;
-use crate::FormatOptions;
+use crate::{FormatOptions, QueryParams};
 
-pub(crate) fn format(
-    tokens: &[Token<'_>],
-    params: &[(String, String)],
-    options: FormatOptions,
-) -> String {
+pub(crate) fn format(tokens: &[Token<'_>], params: &QueryParams, options: FormatOptions) -> String {
     todo!()
 }

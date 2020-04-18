@@ -9,7 +9,8 @@ mod keywords;
 mod params;
 mod tokenizer;
 
-/// Format a given `query`, optionally replacing parameters with values from `params`.
+/// Formats whitespace in a SQL string to make it easier to read.
+/// Optionally replaces parameter placeholders with `params`.
 pub fn format(query: &str, params: &QueryParams, options: FormatOptions) -> String {
     let tokens = tokenizer::tokenize(query);
     formatter::format(&tokens, params, options)
@@ -854,7 +855,7 @@ mod tests {
     #[test]
     fn it_formats_insert_without_into() {
         let input =
-            "INSERT Customers (ID, MoneyBalance, Address, City) VALUES (12,-123.4, 'Skagen 2111','Stv');";
+      "INSERT Customers (ID, MoneyBalance, Address, City) VALUES (12,-123.4, 'Skagen 2111','Stv');";
         let options = FormatOptions::default();
         let expected = indoc!(
             "

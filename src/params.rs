@@ -1,0 +1,37 @@
+use crate::tokenizer::Token;
+use crate::QueryParams;
+
+pub(crate) struct Params<'a> {
+    index: usize,
+    params: &'a QueryParams,
+}
+
+impl<'a> Params<'a> {
+    pub fn new(params: &'a QueryParams) -> Self {
+        Params { index: 0, params }
+    }
+
+    pub fn get(&mut self, token: &'a Token<'a>) -> &'a str {
+        match self.params {
+            QueryParams::Named(params) => token
+                .key
+                .as_ref()
+                .and_then(|key| {
+                    params
+                        .iter()
+                        .find(|param| &param.0 == key)
+                        .map(|param| param.1.as_str())
+                })
+                .unwrap_or(token.value),
+            QueryParams::Indexed(params) => {
+                let value = params
+                    .get(self.index)
+                    .map(|param| param.as_str())
+                    .unwrap_or(token.value);
+                self.index += 1;
+                value
+            }
+            QueryParams::None => token.value,
+        }
+    }
+}

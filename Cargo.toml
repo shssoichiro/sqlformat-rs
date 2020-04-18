@@ -4,6 +4,12 @@ version = "0.1.0"
 authors = ["Josh Holmer <jholmer.in@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
+homepage = "https://github.com/shssoichiro/sqlformat-rs"
+repository = "https://github.com/shssoichiro/sqlformat-rs"
+documentation = "https://docs.rs/sqlformat"
+description = "Formats whitespace in a SQL string to make it easier to read"
+keywords = ["sql"]
+categories = ["development-tools"]
 
 [dependencies]
 lazy_static = "1"

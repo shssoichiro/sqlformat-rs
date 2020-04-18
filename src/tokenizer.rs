@@ -22,8 +22,8 @@ pub(crate) fn tokenize<'a>(mut input: &'a str) -> Vec<Token<'a>> {
 pub(crate) struct Token<'a> {
     pub kind: TokenKind,
     pub value: &'a str,
-    // Only used for placeholder tokens
-    pub key: Option<String>,
+    // Only used for placeholder--there is a reason this isn't on the enum
+    pub key: Option<PlaceholderKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,6 +42,30 @@ pub(crate) enum TokenKind {
     Number,
     Placeholder,
     Word,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum PlaceholderKind {
+    Named(String),
+    ZeroIndexed(usize),
+    OneIndexed(usize),
+}
+
+impl PlaceholderKind {
+    pub fn named(&self) -> &str {
+        match self {
+            PlaceholderKind::Named(val) => val.as_str(),
+            _ => "",
+        }
+    }
+
+    pub fn indexed(&self) -> Option<usize> {
+        match self {
+            PlaceholderKind::ZeroIndexed(val) => Some(*val),
+            PlaceholderKind::OneIndexed(val) => Some(*val - 1),
+            _ => None,
+        }
+    }
 }
 
 fn get_next_token<'a>(input: &'a str, previous_token: Option<&Token<'a>>) -> Token<'a> {
@@ -115,7 +139,16 @@ fn get_placeholder_token_with_key<'a>(
 ) -> Option<Token<'a>> {
     let mut token = get_token_on_first_match(input, TokenKind::Placeholder, regex);
     if let Some(token) = token.as_mut() {
-        token.key = Some(parse_key(token.value));
+        let key = parse_key(token.value);
+        if let Ok(key) = key.parse() {
+            if token.value.starts_with('$') {
+                token.key = Some(PlaceholderKind::OneIndexed(key))
+            } else {
+                token.key = Some(PlaceholderKind::ZeroIndexed(key))
+            }
+        } else {
+            token.key = Some(PlaceholderKind::Named(key))
+        };
     }
     token
 }
@@ -203,7 +236,7 @@ lazy_static! {
     static ref OPERATOR_REGEX: Regex =
         Regex::new(r"^(!=|<>|==|<=|>=|!<|!>|\|\||::|->>|->|~~\*|~~|!~~\*|!~~|~\*|!~\*|!~|:=|.)")
             .unwrap();
-    static ref BLOCK_COMMENT_REGEX: Regex = Regex::new(r"^(/\*.*?(?:\*/|$))").unwrap();
+    static ref BLOCK_COMMENT_REGEX: Regex = Regex::new(r"^(/\*[\s\S]*?(?:\*/|$))").unwrap();
     static ref LINE_COMMENT_REGEX: Regex = create_line_comment_regex(LINE_COMMENT_TYPES);
     static ref RESERVED_TOP_LEVEL_REGEX: Regex =
         create_reserved_word_regex(RESERVED_TOP_LEVEL_WORDS);

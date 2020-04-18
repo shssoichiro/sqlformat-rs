@@ -19,17 +19,24 @@ impl<'a> Params<'a> {
                 .and_then(|key| {
                     params
                         .iter()
-                        .find(|param| &param.0 == key)
+                        .find(|param| param.0 == key.named())
                         .map(|param| param.1.as_str())
                 })
                 .unwrap_or(token.value),
             QueryParams::Indexed(params) => {
-                let value = params
-                    .get(self.index)
-                    .map(|param| param.as_str())
-                    .unwrap_or(token.value);
-                self.index += 1;
-                value
+                if let Some(key) = token.key.as_ref().and_then(|key| key.indexed()) {
+                    params
+                        .get(key)
+                        .map(|param| param.as_str())
+                        .unwrap_or(token.value)
+                } else {
+                    let value = params
+                        .get(self.index)
+                        .map(|param| param.as_str())
+                        .unwrap_or(token.value);
+                    self.index += 1;
+                    value
+                }
             }
             QueryParams::None => token.value,
         }

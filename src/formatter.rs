@@ -141,7 +141,7 @@ impl<'a> Formatter<'a> {
 
         self.inline_block.begin_if_possible(self.tokens, self.index);
 
-        if self.inline_block.is_active() {
+        if !self.inline_block.is_active() {
             self.indentation.increase_block_level();
             self.add_new_line(query);
         }

@@ -6,5 +6,5 @@ for formatting SQL queries.
 
 There is currently no binary interface.
 This crate was written for formatting queries to logs
-within `sqlx`, but it may be useful to other libraries
+within `sqlx`, but it may be useful to other crates
 in the Rust ecosystem.

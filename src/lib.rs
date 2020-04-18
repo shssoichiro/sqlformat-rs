@@ -78,8 +78,7 @@ mod tests {
                 count(*),
                 Column1
             FROM
-                Table1;
-        "
+                Table1;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -94,8 +93,7 @@ mod tests {
             SET SCHEMA
               schema1;
             SET CURRENT SCHEMA
-              schema2;
-        "
+              schema2;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -111,8 +109,7 @@ mod tests {
               count(*),
               Column1
             FROM
-              Table1;
-        "
+              Table1;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -131,8 +128,7 @@ mod tests {
               18 + 20 AS field2,
               'some string'
             FROM
-              foo;
-        "
+              foo;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -160,8 +156,7 @@ mod tests {
                   Column2 = Column3
                   OR Column4 >= NOW()
                 )
-              );
-        "
+              );"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -191,8 +186,7 @@ mod tests {
             ORDER BY
               other_column
             LIMIT
-              5;
-        "
+              5;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -205,8 +199,7 @@ mod tests {
         let expected = indoc!(
             "
             LIMIT
-              5, 10;
-        "
+              5, 10;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -222,8 +215,7 @@ mod tests {
               5;
             SELECT
               foo,
-              bar;
-        "
+              bar;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -236,8 +228,7 @@ mod tests {
         let expected = indoc!(
             "
             LIMIT
-              5 OFFSET 8;
-        "
+              5 OFFSET 8;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -250,8 +241,7 @@ mod tests {
         let expected = indoc!(
             "
             limit
-              5, 10;
-        "
+              5, 10;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -270,8 +260,7 @@ mod tests {
               left join bar
             WHERe
               a > 1
-              and b = 3
-        "
+              and b = 3"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -296,8 +285,7 @@ mod tests {
                   30
               )
             WHERE
-              a > b
-        "
+              a > b"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -308,8 +296,7 @@ mod tests {
         let input = indoc!(
             "
             SELECT customer_id.from, COUNT(order_id) AS total FROM customers
-            INNER JOIN orders ON customers.customer_id = orders.customer_id;
-      "
+            INNER JOIN orders ON customers.customer_id = orders.customer_id;"
         );
         let options = FormatOptions::default();
         let expected = indoc!(
@@ -319,8 +306,7 @@ mod tests {
               COUNT(order_id) AS total
             FROM
               customers
-              INNER JOIN orders ON customers.customer_id = orders.customer_id;
-        "
+              INNER JOIN orders ON customers.customer_id = orders.customer_id;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -337,8 +323,7 @@ mod tests {
             * FROM
             -- This is another comment
             MyTable # One final comment
-            WHERE 1 = 2;
-      "
+            WHERE 1 = 2;"
         );
         let options = FormatOptions::default();
         let expected = indoc!(
@@ -352,8 +337,7 @@ mod tests {
               -- This is another comment
               MyTable # One final comment
             WHERE
-              1 = 2;
-        "
+              1 = 2;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -371,8 +355,7 @@ mod tests {
             FROM
               MyTable
             WHERE
-              1 = 2;
-      "
+              1 = 2;"
         );
         let options = FormatOptions::default();
 
@@ -388,8 +371,7 @@ mod tests {
             INSERT INTO
               Customers (ID, MoneyBalance, Address, City)
             VALUES
-              (12, -123.4, 'Skagen 2111', 'Stv');
-        "
+              (12, -123.4, 'Skagen 2111', 'Stv');"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -402,8 +384,7 @@ mod tests {
         let expected = indoc!(
             "
             SELECT
-              (a + b * (c - NOW()));
-        "
+              (a + b * (c - NOW()));"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -415,8 +396,7 @@ mod tests {
             "
             INSERT INTO some_table (id_product, id_shop, id_currency, id_country, id_registration) (
             SELECT IF(dq.id_discounter_shopping = 2, dq.value, dq.value / 100),
-            IF (dq.id_discounter_shopping = 2, 'amount', 'percentage') FROM foo);
-            "
+            IF (dq.id_discounter_shopping = 2, 'amount', 'percentage') FROM foo);"
         );
         let options = FormatOptions::default();
         let expected = indoc!(
@@ -442,8 +422,7 @@ mod tests {
                   )
                 FROM
                   foo
-              );
-        "
+              );"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -461,8 +440,7 @@ mod tests {
               ContactName = 'Alfred Schmidt',
               City = 'Hamburg'
             WHERE
-              CustomerName = 'Alfreds Futterkiste';
-        "
+              CustomerName = 'Alfreds Futterkiste';"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -478,8 +456,7 @@ mod tests {
               Customers
             WHERE
               CustomerName = 'Alfred'
-              AND Phone = 5002132;
-        "
+              AND Phone = 5002132;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -500,8 +477,7 @@ mod tests {
         let expected = indoc!(
             "
             SELECT
-              count(
-        "
+              count("
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -512,16 +488,14 @@ mod tests {
         let input = indoc!(
             "
             SELECT count(*)
-            /*Comment
-        "
+            /*Comment"
         );
         let options = FormatOptions::default();
         let expected = indoc!(
             "
             SELECT
               count(*)
-              /*Comment
-        "
+              /*Comment"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -543,8 +517,7 @@ mod tests {
                   *
                 FROM
                   bank
-              ) AS order_summary
-        "
+              ) AS order_summary"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -562,8 +535,7 @@ mod tests {
               foo
               LEFT OUTER JOIN bar
             ORDER BY
-              blah
-        "
+              blah"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -579,8 +551,7 @@ mod tests {
               (
                 foo = '0123456789-0123456789-0123456789-0123456789'
               )
-            )
-        "
+            )"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -717,8 +688,7 @@ mod tests {
         let input = indoc!(
             "
             SELECT count(*),Column1 FROM Table1;
-            SELECT count(*),Column1 FROM Table2;
-      "
+            SELECT count(*),Column1 FROM Table2;"
         );
         let options = FormatOptions::default();
         let expected = indoc!(
@@ -732,8 +702,7 @@ mod tests {
               count(*),
               Column1
             FROM
-              Table2;
-        "
+              Table2;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -749,8 +718,7 @@ mod tests {
               test,
               тест
             FROM
-              table;
-        "
+              table;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -770,8 +738,7 @@ mod tests {
               LEFT JOIN bar
             WHERE
               cola > 1
-              AND colb = 3
-        "
+              AND colb = 3"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -792,8 +759,7 @@ mod tests {
             SELECT
               *
             FROM
-              bar;
-        "
+              bar;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -818,8 +784,7 @@ mod tests {
               id NUMBER NOT NULL,
               col1 VARCHAR2(20),
               col2 VARCHAR2(20)
-            );
-        "
+            );"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -845,8 +810,7 @@ mod tests {
               b TEXT,
               c INT NOT NULL,
               d INT NOT NULL
-            );
-        "
+            );"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -862,8 +826,7 @@ mod tests {
             INSERT
               Customers (ID, MoneyBalance, Address, City)
             VALUES
-              (12, -123.4, 'Skagen 2111', 'Stv');
-        "
+              (12, -123.4, 'Skagen 2111', 'Stv');"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -878,8 +841,7 @@ mod tests {
             ALTER TABLE
               supplier
             MODIFY
-              supplier_name char(100) NOT NULL;
-        "
+              supplier_name char(100) NOT NULL;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -894,8 +856,7 @@ mod tests {
             ALTER TABLE
               supplier
             ALTER COLUMN
-              supplier_name VARCHAR(100) NOT NULL;
-        "
+              supplier_name VARCHAR(100) NOT NULL;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -923,8 +884,7 @@ mod tests {
               @'var name',
               @\"var name\",
               @`var name`,
-              @[var name];
-        "
+              @[var name];"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -950,8 +910,7 @@ mod tests {
               'var value',
               'var value',
               'var value',
-              'var\\ value';
-        "
+              'var\\ value';"
         );
 
         assert_eq!(
@@ -973,8 +932,7 @@ mod tests {
               :'var name',
               :\"var name\",
               :`var name`,
-              :[var name];
-        "
+              :[var name];"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1009,8 +967,7 @@ mod tests {
               'var value',
               'var value',
               'weirder value',
-              'super weird value';
-        "
+              'super weird value';"
         );
 
         assert_eq!(
@@ -1028,8 +985,7 @@ mod tests {
             SELECT
               ?1,
               ?25,
-              ?;
-        "
+              ?;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1049,8 +1005,7 @@ mod tests {
             SELECT
               second,
               third,
-              first;
-        "
+              first;"
         );
 
         assert_eq!(
@@ -1073,8 +1028,7 @@ mod tests {
             SELECT
               first,
               second,
-              third;
-        "
+              third;"
         );
 
         assert_eq!(
@@ -1091,8 +1045,7 @@ mod tests {
             "
             SELECT
               $1,
-              $2;
-        "
+              $2;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1112,8 +1065,7 @@ mod tests {
             SELECT
               second,
               third,
-              first;
-        "
+              first;"
         );
 
         assert_eq!(
@@ -1137,8 +1089,7 @@ mod tests {
               1
             GO
             SELECT
-              2
-        "
+              2"
         );
 
         assert_eq!(
@@ -1158,8 +1109,7 @@ mod tests {
               b
             FROM
               t
-              CROSS JOIN t2 on t.id = t2.id_t
-        "
+              CROSS JOIN t2 on t.id = t2.id_t"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1176,8 +1126,7 @@ mod tests {
               b
             FROM
               t
-              CROSS APPLY fn(t.id)
-        "
+              CROSS APPLY fn(t.id)"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1193,8 +1142,7 @@ mod tests {
               N,
               M
             FROM
-              t
-        "
+              t"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1207,8 +1155,7 @@ mod tests {
         let expected = indoc!(
             "
             SELECT
-              N'value'
-        "
+              N'value'"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1225,8 +1172,7 @@ mod tests {
               b
             FROM
               t
-              OUTER APPLY fn(t.id)
-        "
+              OUTER APPLY fn(t.id)"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1241,8 +1187,7 @@ mod tests {
             SELECT
               *
             FETCH FIRST
-              2 ROWS ONLY;
-        "
+              2 ROWS ONLY;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1259,8 +1204,7 @@ mod tests {
               WHEN option = 'bar' THEN 2
               WHEN option = 'baz' THEN 3
               ELSE 4
-            END;
-        "
+            END;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1283,8 +1227,7 @@ mod tests {
                 ELSE 3
               END
             FROM
-              table
-        "
+              table"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1302,8 +1245,7 @@ mod tests {
               WHEN 'two' THEN 2
               WHEN 'three' THEN 3
               ELSE 4
-            END;
-        "
+            END;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1318,8 +1260,7 @@ mod tests {
             case
               when option = 'foo' then 1
               else 2
-            end;
-        "
+            end;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1335,8 +1276,7 @@ mod tests {
               CASEDATE,
               ENDDATE
             FROM
-              table1;
-        "
+              table1;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1351,8 +1291,7 @@ mod tests {
             SELECT
               a #comment, here
             FROM
-              b --comment
-        "
+              b --comment"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1364,8 +1303,7 @@ mod tests {
             "
             SELECT a FROM b
             --comment
-            ;
-        "
+            ;"
         );
         let options = FormatOptions::default();
         let expected = indoc!(
@@ -1374,8 +1312,7 @@ mod tests {
               a
             FROM
               b --comment
-            ;
-        "
+            ;"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1386,8 +1323,7 @@ mod tests {
         let input = indoc!(
             "
             SELECT a --comment
-            , b
-        "
+            , b"
         );
         let options = FormatOptions::default();
         let expected = indoc!(
@@ -1395,8 +1331,7 @@ mod tests {
             SELECT
               a --comment
             ,
-              b
-        "
+              b"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1410,8 +1345,7 @@ mod tests {
             "
             SELECT
               (a --comment
-            )
-        "
+            )"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
@@ -1425,8 +1359,7 @@ mod tests {
             "
             SELECT
               a --comment
-              ()
-        "
+              ()"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);

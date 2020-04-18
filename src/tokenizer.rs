@@ -41,6 +41,7 @@ pub(crate) enum TokenKind {
     BlockComment,
     Number,
     Placeholder,
+    Word,
 }
 
 fn get_next_token<'a>(input: &'a str, previous_token: Option<&Token<'a>>) -> Token<'a> {
@@ -52,6 +53,7 @@ fn get_next_token<'a>(input: &'a str, previous_token: Option<&Token<'a>>) -> Tok
         .or_else(|| get_placeholder_token(input))
         .or_else(|| get_number_token(input))
         .or_else(|| get_reserved_word_token(input, previous_token))
+        .or_else(|| get_word_token(input))
         .or_else(|| get_operator_token(input))
         .expect("get_next_token received empty input")
 }
@@ -125,6 +127,10 @@ fn get_escaped_placeholder_key<'a>(key: &'a str, quote_char: &str) -> String {
 
 fn get_number_token(input: &str) -> Option<Token<'_>> {
     get_token_on_first_match(input, TokenKind::Number, &NUMBER_REGEX)
+}
+
+fn get_word_token(input: &str) -> Option<Token<'_>> {
+    get_token_on_first_match(input, TokenKind::Word, &WORD_REGEX)
 }
 
 fn get_operator_token(input: &str) -> Option<Token<'_>> {
@@ -205,6 +211,7 @@ lazy_static! {
         create_reserved_word_regex(RESERVED_TOP_LEVEL_WORDS_NO_INDENT);
     static ref RESERVED_NEWLINE_REGEX: Regex = create_reserved_word_regex(RESERVED_NEWLINE_WORDS);
     static ref RESERVED_PLAIN_REGEX: Regex = create_reserved_word_regex(RESERVED_WORDS);
+    static ref WORD_REGEX: Regex = Regex::new("^([\\p{Alphabetic}\\p{Mark}\\p{Decimal_Number}\\p{Connector_Punctuation}\\p{Join_Control}]+)").unwrap();
     static ref STRING_REGEX: Regex = create_string_regex(STRING_TYPES);
     static ref OPEN_PAREN_REGEX: Regex = create_paren_regex(OPEN_PARENS);
     static ref CLOSE_PAREN_REGEX: Regex = create_paren_regex(CLOSE_PARENS);

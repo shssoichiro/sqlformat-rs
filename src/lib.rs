@@ -2,6 +2,8 @@
 //! written in Rust. It is intended to be usable as a pure-Rust library
 //! for formatting SQL queries.
 
+#![forbid(unsafe_code)]
+
 mod formatter;
 mod indentation;
 mod inline_block;

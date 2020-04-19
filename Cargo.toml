@@ -17,4 +17,9 @@ maplit = "1"
 regex = "1"
 
 [dev-dependencies]
+criterion = "0.3"
 indoc = "0.3"
+
+[[bench]]
+name = "bench"
+harness = false

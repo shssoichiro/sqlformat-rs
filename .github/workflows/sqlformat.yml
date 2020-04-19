@@ -55,7 +55,7 @@ jobs:
     - name: Run tests
       run: cargo test
     - name: Build benchmarks
-      if: matrix.toolchain == 'nightly'
+      if: matrix.toolchain == 'stable'
       run: cargo bench --no-run
     - name: Build docs
       run: cargo doc --no-deps

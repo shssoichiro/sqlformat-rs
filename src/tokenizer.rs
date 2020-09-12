@@ -189,27 +189,67 @@ fn get_reserved_word_token<'a>(
 }
 
 fn get_top_level_reserved_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(
+    get_word_token_on_first_match(
         input,
         TokenKind::ReservedTopLevel,
-        &RESERVED_TOP_LEVEL_REGEX,
+        &RESERVED_TOP_LEVEL_WORDS,
     )
 }
 
 fn get_newline_reserved_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::ReservedNewline, &RESERVED_NEWLINE_REGEX)
+    get_word_token_on_first_match(input, TokenKind::ReservedNewline, RESERVED_NEWLINE_WORDS)
 }
 
 fn get_top_level_reserved_token_no_indent(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(
+    get_word_token_on_first_match(
         input,
         TokenKind::ReservedTopLevelNoIndent,
-        &RESERVED_TOP_LEVEL_NO_INDENT_REGEX,
+        &RESERVED_TOP_LEVEL_WORDS_NO_INDENT,
     )
 }
 
 fn get_plain_reserved_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::Reserved, &RESERVED_PLAIN_REGEX)
+    get_word_token_on_first_match(input, TokenKind::Reserved, &RESERVED_WORDS)
+}
+
+fn get_word_token_on_first_match<'a>(
+    input: &'a str,
+    kind: TokenKind,
+    word_list: &[&str],
+) -> Option<Token<'a>> {
+    const MAX_WORDS: usize = 3;
+    let uc_input = input
+        .split_ascii_whitespace()
+        .take(MAX_WORDS)
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_ascii_uppercase();
+    for word in word_list {
+        if uc_input.starts_with(word)
+            && is_word_boundary(uc_input.chars().nth(word.len()).unwrap_or(' '))
+        {
+            let word_len = word.chars().filter(|c| *c != ' ').count();
+            let real_length = input
+                .chars()
+                .enumerate()
+                .filter(|&(_, c)| !c.is_ascii_whitespace())
+                .take(word_len)
+                .last()
+                .unwrap()
+                .0
+                + 1;
+            return Some(Token {
+                kind,
+                value: &input[..real_length],
+                key: None,
+            });
+        }
+    }
+    None
+}
+
+fn is_word_boundary(c: char) -> bool {
+    !(c.is_ascii_alphanumeric() || c == '_')
 }
 
 fn get_token_on_first_match<'a>(
@@ -238,12 +278,6 @@ lazy_static! {
             .unwrap();
     static ref BLOCK_COMMENT_REGEX: Regex = Regex::new(r"^(/\*[\s\S]*?(?:\*/|$))").unwrap();
     static ref LINE_COMMENT_REGEX: Regex = create_line_comment_regex(LINE_COMMENT_TYPES);
-    static ref RESERVED_TOP_LEVEL_REGEX: Regex =
-        create_reserved_word_regex(RESERVED_TOP_LEVEL_WORDS);
-    static ref RESERVED_TOP_LEVEL_NO_INDENT_REGEX: Regex =
-        create_reserved_word_regex(RESERVED_TOP_LEVEL_WORDS_NO_INDENT);
-    static ref RESERVED_NEWLINE_REGEX: Regex = create_reserved_word_regex(RESERVED_NEWLINE_WORDS);
-    static ref RESERVED_PLAIN_REGEX: Regex = create_reserved_word_regex(RESERVED_WORDS);
     static ref WORD_REGEX: Regex = Regex::new("^([\\p{Alphabetic}\\p{Mark}\\p{Decimal_Number}\\p{Connector_Punctuation}\\p{Join_Control}]+)").unwrap();
     static ref STRING_REGEX: Regex = create_string_regex(STRING_TYPES);
     static ref OPEN_PAREN_REGEX: Regex = create_paren_regex(OPEN_PARENS);
@@ -266,14 +300,6 @@ fn create_line_comment_regex(items: &[&str]) -> Regex {
             .map(|item| regex::escape(item))
             .collect::<Vec<String>>()
             .join("|")
-    ))
-    .unwrap()
-}
-
-fn create_reserved_word_regex(items: &[&str]) -> Regex {
-    Regex::new(&format!(
-        "^((?i){})\\b",
-        items.join("|").replace(' ', "\\s+")
     ))
     .unwrap()
 }

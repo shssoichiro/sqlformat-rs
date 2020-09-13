@@ -1,6 +1,7 @@
 use crate::keywords::*;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::borrow::Cow;
 
 pub(crate) fn tokenize<'a>(mut input: &'a str) -> Vec<Token<'a>> {
     let mut tokens = Vec::new();
@@ -23,7 +24,7 @@ pub(crate) struct Token<'a> {
     pub kind: TokenKind,
     pub value: &'a str,
     // Only used for placeholder--there is a reason this isn't on the enum
-    pub key: Option<PlaceholderKind>,
+    pub key: Option<PlaceholderKind<'a>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,16 +46,16 @@ pub(crate) enum TokenKind {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum PlaceholderKind {
-    Named(String),
+pub(crate) enum PlaceholderKind<'a> {
+    Named(Cow<'a, str>),
     ZeroIndexed(usize),
     OneIndexed(usize),
 }
 
-impl PlaceholderKind {
-    pub fn named(&self) -> &str {
+impl<'a> PlaceholderKind<'a> {
+    pub fn named(&'a self) -> &'a str {
         match self {
-            PlaceholderKind::Named(val) => val.as_str(),
+            PlaceholderKind::Named(val) => val.as_ref(),
             _ => "",
         }
     }
@@ -118,7 +119,7 @@ fn get_placeholder_token(input: &str) -> Option<Token<'_>> {
 
 fn get_ident_named_placeholder_token(input: &str) -> Option<Token<'_>> {
     get_placeholder_token_with_key(input, &IDENT_NAMED_PLACEHOLDER_REGEX, |v| {
-        v[1..].to_string()
+        Cow::Borrowed(&v[1..])
     })
 }
 
@@ -129,13 +130,15 @@ fn get_string_named_placeholder_token(input: &str) -> Option<Token<'_>> {
 }
 
 fn get_indexed_placeholder_token(input: &str) -> Option<Token<'_>> {
-    get_placeholder_token_with_key(input, &INDEXED_PLACEHOLDER_REGEX, |v| v[1..].to_string())
+    get_placeholder_token_with_key(input, &INDEXED_PLACEHOLDER_REGEX, |v| {
+        Cow::Borrowed(&v[1..])
+    })
 }
 
 fn get_placeholder_token_with_key<'a>(
     input: &'a str,
     regex: &Regex,
-    parse_key: fn(&str) -> String,
+    parse_key: fn(&'a str) -> Cow<'a, str>,
 ) -> Option<Token<'a>> {
     let mut token = get_token_on_first_match(input, TokenKind::Placeholder, regex);
     if let Some(token) = token.as_mut() {
@@ -153,9 +156,9 @@ fn get_placeholder_token_with_key<'a>(
     token
 }
 
-fn get_escaped_placeholder_key<'a>(key: &'a str, quote_char: &str) -> String {
+fn get_escaped_placeholder_key<'a>(key: &'a str, quote_char: &str) -> Cow<'a, str> {
     let regex = Regex::new(&regex::escape(&format!("\\{}", quote_char))).unwrap();
-    regex.replace_all(key, quote_char).to_string()
+    regex.replace_all(key, quote_char)
 }
 
 fn get_number_token(input: &str) -> Option<Token<'_>> {

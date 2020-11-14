@@ -906,10 +906,7 @@ fn get_plain_reserved_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
 }
 
 fn get_word_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
-    take_while1(|item: char| {
-        item.is_alphanumeric() || item.is_mark() || item.is_punctuation_connector()
-    })(input)
-    .map(|(input, token)| {
+    take_while1(is_word_character)(input).map(|(input, token)| {
         (
             input,
             Token {
@@ -963,5 +960,9 @@ fn get_operator_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
 }
 
 fn end_of_word<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
-    peek(take_while1(|c: char| !c.is_alphabetic()))(input)
+    peek(take_while1(|c: char| !is_word_character(c)))(input)
+}
+
+fn is_word_character(item: char) -> bool {
+    item.is_alphanumeric() || item.is_mark() || item.is_punctuation_connector()
 }

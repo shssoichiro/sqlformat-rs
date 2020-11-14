@@ -888,10 +888,7 @@ fn get_plain_reserved_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
 
 fn get_word_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
     take_while1(|item: char| {
-        item.is_alphanumeric()
-            || item.is_mark()
-            || item.is_punctuation_connector()
-            || item.is_other_control()
+        item.is_alphanumeric() || item.is_mark() || item.is_punctuation_connector()
     })(input)
     .map(|(input, token)| {
         (

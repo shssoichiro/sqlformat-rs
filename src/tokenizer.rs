@@ -214,6 +214,47 @@ fn get_string_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
     })
 }
 
+// Like above but it doesn't replace double quotes
+fn get_placeholder_string_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    alt((
+        recognize(tuple((
+            char('`'),
+            take_till_escaping('`', &['`']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('['),
+            take_till_escaping(']', &[']']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('"'),
+            take_till_escaping('"', &['\\']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('\''),
+            take_till_escaping('\'', &['\\']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            tag("N'"),
+            take_till_escaping('\'', &['\\']),
+            take(1usize),
+        ))),
+    ))(input)
+    .map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::String,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
+
 fn get_open_paren_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
     alt((tag("("), terminated(tag_no_case("CASE"), end_of_word)))(input).map(|(input, token)| {
         (
@@ -242,28 +283,31 @@ fn get_close_paren_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
 
 fn get_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
     alt((
-        get_indexed_placeholder_token,
         get_ident_named_placeholder_token,
         get_string_named_placeholder_token,
+        get_indexed_placeholder_token,
     ))(input)
 }
 
-//pub(crate) const INDEXED_PLACEHOLDER_TYPES: &[&str] = &["?", "$"];
-//
-//pub(crate) const NAMED_PLACEHOLDER_TYPES: &[&str] = &["@", ":"];
-
 fn get_indexed_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
-    recognize(tuple((alt((char('?'), char('$'))), digit1)))(input).map(|(input, token)| {
-        let index = token[1..].parse::<usize>().unwrap();
+    alt((
+        recognize(tuple((alt((char('?'), char('$'))), digit1))),
+        recognize(char('?')),
+    ))(input)
+    .map(|(input, token)| {
         (
             input,
             Token {
                 kind: TokenKind::Placeholder,
                 value: token,
                 key: if token.starts_with('$') {
+                    let index = token[1..].parse::<usize>().unwrap();
                     Some(PlaceholderKind::OneIndexed(index))
-                } else {
+                } else if token.len() > 1 {
+                    let index = token[1..].parse::<usize>().unwrap();
                     Some(PlaceholderKind::ZeroIndexed(index))
+                } else {
+                    None
                 },
             },
         )
@@ -291,19 +335,26 @@ fn get_ident_named_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Tok
 }
 
 fn get_string_named_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
-    recognize(tuple((alt((char('@'), char(':'))), get_string_token)))(input).map(
-        |(input, token)| {
-            let index = Cow::Borrowed(&token[1..]);
-            (
-                input,
-                Token {
-                    kind: TokenKind::Placeholder,
-                    value: token,
-                    key: Some(PlaceholderKind::Named(index)),
-                },
-            )
-        },
-    )
+    recognize(tuple((
+        alt((char('@'), char(':'))),
+        get_placeholder_string_token,
+    )))(input)
+    .map(|(input, token)| {
+        let index =
+            get_escaped_placeholder_key(&token[2..token.len() - 1], &token[token.len() - 1..]);
+        (
+            input,
+            Token {
+                kind: TokenKind::Placeholder,
+                value: token,
+                key: Some(PlaceholderKind::Named(index)),
+            },
+        )
+    })
+}
+
+fn get_escaped_placeholder_key<'a>(key: &'a str, quote_char: &str) -> Cow<'a, str> {
+    Cow::Owned(key.replace(&format!("\\{}", quote_char), quote_char))
 }
 
 fn get_number_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {

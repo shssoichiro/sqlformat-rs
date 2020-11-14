@@ -117,6 +117,7 @@ fn get_block_comment_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
     recognize(tuple((
         tag("/*"),
         alt((take_until("*/"), recognize(many0(anychar)))),
+        opt(take(2usize)),
     )))(input)
     .map(|(input, token)| {
         (

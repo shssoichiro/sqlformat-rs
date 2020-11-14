@@ -1,7 +1,8 @@
 use nom::branch::alt;
-use nom::bytes::complete::{tag, tag_no_case, take_while, take_while1};
+use nom::bytes::complete::{tag, tag_no_case, take, take_while, take_while1};
 use nom::character::complete::{char, digit0, digit1, not_line_ending, space1};
-use nom::combinator::{eof, opt, recognize};
+use nom::combinator::{eof, map_res, opt, recognize};
+use nom::error::ParseError;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 use std::borrow::Cow;
@@ -126,6 +127,36 @@ fn get_block_comment_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
     )
 }
 
+pub fn take_till_escaping<'a, Error: ParseError<&'a str>>(
+    desired: char,
+    escapes: &'static [char],
+) -> impl Fn(&'a str) -> IResult<&'a str, &'a str, Error> {
+    move |input: &str| {
+        let mut chars = input.chars().enumerate().peekable();
+        let mut last = None;
+        loop {
+            let item = chars.next();
+            let next = chars.peek().map(|item| item.1);
+            match item {
+                Some(item) => {
+                    if item.1 == desired
+                        && !last.map(|item| escapes.contains(&item)).unwrap_or(false)
+                        && !(escapes.contains(&item.1) && Some(desired) == next)
+                    {
+                        return Ok((&input[item.0..], &input[..item.0]));
+                    }
+
+                    last = Some(item.1);
+                    continue;
+                }
+                None => {
+                    return Ok(("", input));
+                }
+            }
+        }
+    }
+}
+
 // This enables the following string patterns:
 // 1. backtick quoted string using `` to escape
 // 2. square bracket quoted string (SQL Server) using ]] to escape
@@ -134,11 +165,31 @@ fn get_block_comment_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
 // 5. national character quoted string using N'' or N\' to escape
 fn get_string_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
     alt((
-        delimited(char('`'), take_while(|_| true), char('`')),
-        delimited(char('['), take_while(|_| true), char(']')),
-        delimited(char('"'), take_while(|_| true), char('"')),
-        delimited(char('\''), take_while(|_| true), char('\'')),
-        delimited(tag("N'"), take_while(|_| true), char('\'')),
+        recognize(tuple((
+            char('`'),
+            take_till_escaping('`', &['`']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('['),
+            take_till_escaping(']', &[']']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('"'),
+            take_till_escaping('"', &['"', '\\']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('\''),
+            take_till_escaping('\'', &['\'', '\\']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            tag("N'"),
+            take_till_escaping('\'', &['\'', '\\']),
+            take(1usize),
+        ))),
     ))(input)
     .map(|(input, token)| {
         (
@@ -791,7 +842,13 @@ fn get_operator_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
         tag("!~*"),
         tag("!~"),
         tag(":="),
-        tag("."),
+        recognize(map_res(take(1usize), |token| {
+            if token == "\n" || token == "\r\n" {
+                Err(())
+            } else {
+                Ok(token)
+            }
+        })),
     ))(input)
     .map(|(input, token)| {
         (

@@ -1,5 +1,5 @@
 use nom::branch::alt;
-use nom::bytes::complete::{tag, tag_no_case, take, take_until, take_while, take_while1};
+use nom::bytes::complete::{tag, tag_no_case, take, take_until, take_while1};
 use nom::character::complete::{anychar, char, digit0, digit1, not_line_ending};
 use nom::combinator::{map_res, opt, peek, recognize};
 use nom::error::ParseError;
@@ -265,7 +265,7 @@ fn get_indexed_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Token<'
 fn get_ident_named_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
     recognize(tuple((
         alt((char('@'), char(':'))),
-        take_while(|item: char| {
+        take_while1(|item: char| {
             item.is_alphanumeric() || item == '.' || item == '_' || item == '$'
         }),
     )))(input)

@@ -1,7 +1,7 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take, take_until, take_while1};
-use nom::character::complete::{anychar, char, digit0, digit1, not_line_ending};
-use nom::combinator::{map_res, opt, peek, recognize};
+use nom::character::complete::{anychar, char, digit0, digit1, not_line_ending, space1};
+use nom::combinator::{map, map_res, opt, peek, recognize};
 use nom::error::ParseError;
 use nom::error::{Error, ErrorKind};
 use nom::multi::many0;
@@ -347,23 +347,88 @@ fn get_top_level_reserved_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a
     alt((
         terminated(tag_no_case("ADD"), end_of_word),
         terminated(tag_no_case("AFTER"), end_of_word),
-        terminated(tag_no_case("ALTER COLUMN"), end_of_word),
-        terminated(tag_no_case("ALTER TABLE"), end_of_word),
-        terminated(tag_no_case("DELETE FROM"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("ALTER"),
+                many_whitespace_to_1,
+                tag_no_case("COLUMN"),
+            ))),
+            end_of_word,
+        ),
+        terminated(
+            recognize(tuple((
+                tag_no_case("ALTER"),
+                many_whitespace_to_1,
+                tag_no_case("TABLE"),
+            ))),
+            end_of_word,
+        ),
+        terminated(
+            recognize(tuple((
+                tag_no_case("DELETE"),
+                many_whitespace_to_1,
+                tag_no_case("FROM"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("EXCEPT"), end_of_word),
-        terminated(tag_no_case("FETCH FIRST"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("FETCH"),
+                many_whitespace_to_1,
+                tag_no_case("FIRST"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("FROM"), end_of_word),
-        terminated(tag_no_case("GROUP BY"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("GROUP"),
+                many_whitespace_to_1,
+                tag_no_case("BY"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("GO"), end_of_word),
         terminated(tag_no_case("HAVING"), end_of_word),
-        terminated(tag_no_case("INSERT INTO"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("INSERT"),
+                many_whitespace_to_1,
+                tag_no_case("INTO"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("INSERT"), end_of_word),
         terminated(tag_no_case("LIMIT"), end_of_word),
         terminated(tag_no_case("MODIFY"), end_of_word),
-        terminated(tag_no_case("ORDER BY"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("ORDER"),
+                many_whitespace_to_1,
+                tag_no_case("BY"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("SELECT"), end_of_word),
-        terminated(tag_no_case("SET CURRENT SCHEMA"), end_of_word),
-        terminated(tag_no_case("SET SCHEMA"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("SET"),
+                many_whitespace_to_1,
+                tag_no_case("CURRENT"),
+                many_whitespace_to_1,
+                tag_no_case("SCHEMA"),
+            ))),
+            end_of_word,
+        ),
+        terminated(
+            recognize(tuple((
+                tag_no_case("SET"),
+                many_whitespace_to_1,
+                tag_no_case("SCHEMA"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("SET"), end_of_word),
         alt((
             terminated(tag_no_case("UPDATE"), end_of_word),
@@ -386,18 +451,85 @@ fn get_top_level_reserved_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a
 fn get_newline_reserved_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
     alt((
         terminated(tag_no_case("AND"), end_of_word),
-        terminated(tag_no_case("CROSS APPLY"), end_of_word),
-        terminated(tag_no_case("CROSS JOIN"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("CROSS"),
+                many_whitespace_to_1,
+                tag_no_case("APPLY"),
+            ))),
+            end_of_word,
+        ),
+        terminated(
+            recognize(tuple((
+                tag_no_case("CROSS"),
+                many_whitespace_to_1,
+                tag_no_case("JOIN"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("ELSE"), end_of_word),
-        terminated(tag_no_case("INNER JOIN"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("INNER"),
+                many_whitespace_to_1,
+                tag_no_case("JOIN"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("JOIN"), end_of_word),
-        terminated(tag_no_case("LEFT JOIN"), end_of_word),
-        terminated(tag_no_case("LEFT OUTER JOIN"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("LEFT"),
+                many_whitespace_to_1,
+                tag_no_case("JOIN"),
+            ))),
+            end_of_word,
+        ),
+        terminated(
+            recognize(tuple((
+                tag_no_case("LEFT"),
+                many_whitespace_to_1,
+                tag_no_case("OUTER"),
+                many_whitespace_to_1,
+                tag_no_case("JOIN"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("OR"), end_of_word),
-        terminated(tag_no_case("OUTER APPLY"), end_of_word),
-        terminated(tag_no_case("OUTER JOIN"), end_of_word),
-        terminated(tag_no_case("RIGHT JOIN"), end_of_word),
-        terminated(tag_no_case("RIGHT OUTER JOIN"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("OUTER"),
+                many_whitespace_to_1,
+                tag_no_case("APPLY"),
+            ))),
+            end_of_word,
+        ),
+        terminated(
+            recognize(tuple((
+                tag_no_case("OUTER"),
+                many_whitespace_to_1,
+                tag_no_case("JOIN"),
+            ))),
+            end_of_word,
+        ),
+        terminated(
+            recognize(tuple((
+                tag_no_case("RIGHT"),
+                many_whitespace_to_1,
+                tag_no_case("JOIN"),
+            ))),
+            end_of_word,
+        ),
+        terminated(
+            recognize(tuple((
+                tag_no_case("RIGHT"),
+                space1,
+                tag_no_case("OUTER"),
+                space1,
+                tag_no_case("JOIN"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("WHEN"), end_of_word),
         terminated(tag_no_case("XOR"), end_of_word),
     ))(input)
@@ -416,10 +548,24 @@ fn get_newline_reserved_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>>
 fn get_top_level_reserved_token_no_indent<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
     alt((
         terminated(tag_no_case("INTERSECT"), end_of_word),
-        terminated(tag_no_case("INTERSECT ALL"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("INTERSECT"),
+                many_whitespace_to_1,
+                tag_no_case("ALL"),
+            ))),
+            end_of_word,
+        ),
         terminated(tag_no_case("MINUS"), end_of_word),
         terminated(tag_no_case("UNION"), end_of_word),
-        terminated(tag_no_case("UNION ALL"), end_of_word),
+        terminated(
+            recognize(tuple((
+                tag_no_case("UNION"),
+                many_whitespace_to_1,
+                tag_no_case("ALL"),
+            ))),
+            end_of_word,
+        ),
     ))(input)
     .map(|(input, token)| {
         (
@@ -965,4 +1111,8 @@ fn end_of_word<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
 
 fn is_word_character(item: char) -> bool {
     item.is_alphanumeric() || item.is_mark() || item.is_punctuation_connector()
+}
+
+fn many_whitespace_to_1<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+    map(take_while1(|c: char| c.is_whitespace()), |_| " ")(input)
 }

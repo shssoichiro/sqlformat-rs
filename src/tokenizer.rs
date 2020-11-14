@@ -1,9 +1,10 @@
 use nom::branch::alt;
-use nom::bytes::complete::{tag, tag_no_case, take, take_while, take_while1};
-use nom::character::complete::{char, digit0, digit1, not_line_ending};
-use nom::combinator::{eof, map_res, opt, peek, recognize};
+use nom::bytes::complete::{tag, tag_no_case, take, take_until, take_while, take_while1};
+use nom::character::complete::{anychar, char, digit0, digit1, not_line_ending};
+use nom::combinator::{map_res, opt, peek, recognize};
 use nom::error::ParseError;
-use nom::sequence::{delimited, preceded, terminated, tuple};
+use nom::multi::many0;
+use nom::sequence::{terminated, tuple};
 use nom::IResult;
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
@@ -100,7 +101,7 @@ fn get_comment_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
 }
 
 fn get_line_comment_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
-    preceded(alt((tag("#"), tag("--"))), not_line_ending)(input).map(|(input, token)| {
+    recognize(tuple((alt((tag("#"), tag("--"))), not_line_ending)))(input).map(|(input, token)| {
         (
             input,
             Token {
@@ -113,18 +114,20 @@ fn get_line_comment_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
 }
 
 fn get_block_comment_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
-    delimited(tag("/*"), take_while(|_| true), alt((tag("*/"), eof)))(input).map(
-        |(input, token)| {
-            (
-                input,
-                Token {
-                    kind: TokenKind::BlockComment,
-                    value: token,
-                    key: None,
-                },
-            )
-        },
-    )
+    recognize(tuple((
+        tag("/*"),
+        alt((take_until("*/"), recognize(many0(anychar)))),
+    )))(input)
+    .map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::BlockComment,
+                value: token,
+                key: None,
+            },
+        )
+    })
 }
 
 pub fn take_till_escaping<'a, Error: ParseError<&'a str>>(

@@ -215,7 +215,7 @@ fn get_string_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
 }
 
 fn get_open_paren_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
-    alt((tag("("), tag_no_case("CASE")))(input).map(|(input, token)| {
+    alt((tag("("), terminated(tag_no_case("CASE"), end_of_word)))(input).map(|(input, token)| {
         (
             input,
             Token {
@@ -228,7 +228,7 @@ fn get_open_paren_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
 }
 
 fn get_close_paren_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
-    alt((tag(")"), tag_no_case("END")))(input).map(|(input, token)| {
+    alt((tag(")"), terminated(tag_no_case("END"), end_of_word)))(input).map(|(input, token)| {
         (
             input,
             Token {

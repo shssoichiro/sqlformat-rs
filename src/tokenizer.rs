@@ -3,18 +3,22 @@ use nom::bytes::complete::{tag, tag_no_case, take, take_until, take_while1};
 use nom::character::complete::{anychar, char, digit0, digit1, not_line_ending};
 use nom::combinator::{map_res, opt, peek, recognize};
 use nom::error::ParseError;
+use nom::error::{Error, ErrorKind};
 use nom::multi::many0;
 use nom::sequence::{terminated, tuple};
-use nom::IResult;
+use nom::{Err, IResult};
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
 
 pub(crate) fn tokenize<'a>(mut input: &'a str) -> Vec<Token<'a>> {
     let mut tokens = Vec::new();
+    let mut token = None;
 
     // Keep processing the string until it is empty
-    while let Ok(result) = get_next_token(input) {
+    while let Ok(result) = get_next_token(input, token.as_ref()) {
+        token = Some(result.1.clone());
         input = result.0;
+
         tokens.push(result.1);
     }
     tokens
@@ -70,7 +74,10 @@ impl<'a> PlaceholderKind<'a> {
     }
 }
 
-fn get_next_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+fn get_next_token<'a>(
+    input: &'a str,
+    previous_token: Option<&Token<'a>>,
+) -> IResult<&'a str, Token<'a>> {
     get_whitespace_token(input)
         .or_else(|_| get_comment_token(input))
         .or_else(|_| get_string_token(input))
@@ -78,7 +85,7 @@ fn get_next_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
         .or_else(|_| get_close_paren_token(input))
         .or_else(|_| get_placeholder_token(input))
         .or_else(|_| get_number_token(input))
-        .or_else(|_| get_reserved_word_token(input))
+        .or_else(|_| get_reserved_word_token(input, previous_token))
         .or_else(|_| get_word_token(input))
         .or_else(|_| get_operator_token(input))
 }
@@ -316,7 +323,18 @@ fn decimal_number<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
     recognize(tuple((digit1, tag("."), digit0)))(input)
 }
 
-fn get_reserved_word_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+fn get_reserved_word_token<'a>(
+    input: &'a str,
+    previous_token: Option<&Token<'a>>,
+) -> IResult<&'a str, Token<'a>> {
+    // A reserved word cannot be preceded by a "."
+    // this makes it so in "my_table.from", "from" is not considered a reserved word
+    if let Some(token) = previous_token {
+        if token.value == "." {
+            return Err(Err::Error(Error::new(input, ErrorKind::IsNot)));
+        }
+    }
+
     alt((
         get_top_level_reserved_token,
         get_newline_reserved_token,

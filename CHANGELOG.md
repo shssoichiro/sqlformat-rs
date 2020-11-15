@@ -1,3 +1,7 @@
+### Version 0.1.3
+
+- Fix an issue some users experienced where this crate would fail to compile
+
 ### Version 0.1.2
 
 - Rewrite the parser in nom, providing significant performance improvements across the board

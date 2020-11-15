@@ -220,10 +220,7 @@ impl<'a> Formatter<'a> {
     }
 
     fn trim_spaces_end(&self, query: &mut String) {
-        lazy_static! {
-            static ref REGEX: Regex = Regex::new(r"[ \t]+$").unwrap();
-        }
-        *query = REGEX.replace_all(query, "").to_string();
+        query.truncate(query.trim_end_matches(|c| c == ' ' || c == '\t').len());
     }
 
     fn indent_comment<'t>(&self, token: &'t str) -> Cow<'t, str> {

@@ -1,7 +1,7 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take, take_until, take_while1};
 use nom::character::complete::{anychar, char, digit0, digit1, not_line_ending, space1};
-use nom::combinator::{map, map_res, opt, peek, recognize};
+use nom::combinator::{eof, map, opt, peek, recognize, verify};
 use nom::error::ParseError;
 use nom::error::{Error, ErrorKind};
 use nom::multi::many0;
@@ -1136,12 +1136,8 @@ fn get_operator_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
         tag("!~*"),
         tag("!~"),
         tag(":="),
-        recognize(map_res(take(1usize), |token| {
-            if token == "\n" || token == "\r\n" {
-                Err(())
-            } else {
-                Ok(token)
-            }
+        recognize(verify(take(1usize), |token: &str| {
+            token != "\n" && token != "\r"
         })),
     ))(input)
     .map(|(input, token)| {
@@ -1157,7 +1153,12 @@ fn get_operator_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
 }
 
 fn end_of_word<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
-    peek(take_while1(|c: char| !is_word_character(c)))(input)
+    peek(alt((
+        eof,
+        verify(take(1usize), |val: &str| {
+            !is_word_character(val.chars().next().unwrap())
+        }),
+    )))(input)
 }
 
 fn is_word_character(item: char) -> bool {

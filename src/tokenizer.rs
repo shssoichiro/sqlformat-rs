@@ -1,20 +1,25 @@
-use crate::keywords::*;
-use lazy_static::lazy_static;
-use regex::Regex;
+use nom::branch::alt;
+use nom::bytes::complete::{tag, tag_no_case, take, take_until, take_while1};
+use nom::character::complete::{anychar, char, digit0, digit1, not_line_ending};
+use nom::combinator::{eof, opt, peek, recognize, verify};
+use nom::error::ParseError;
+use nom::error::{Error, ErrorKind};
+use nom::multi::many0;
+use nom::sequence::{terminated, tuple};
+use nom::{Err, IResult};
 use std::borrow::Cow;
+use unicode_categories::UnicodeCategories;
 
 pub(crate) fn tokenize<'a>(mut input: &'a str) -> Vec<Token<'a>> {
     let mut tokens = Vec::new();
     let mut token = None;
 
     // Keep processing the string until it is empty
-    while !input.is_empty() {
-        // Get the next token and the token type
-        token = Some(get_next_token(input, token.as_ref()));
-        // Advance the string
-        input = &input[token.as_ref().unwrap().value.len()..];
+    while let Ok(result) = get_next_token(input, token.as_ref()) {
+        token = Some(result.1.clone());
+        input = result.0;
 
-        tokens.push(token.clone().unwrap());
+        tokens.push(result.1);
     }
     tokens
 }
@@ -69,246 +74,98 @@ impl<'a> PlaceholderKind<'a> {
     }
 }
 
-fn get_next_token<'a>(input: &'a str, previous_token: Option<&Token<'a>>) -> Token<'a> {
-    get_whitespace_token(input)
-        .or_else(|| get_comment_token(input))
-        .or_else(|| get_string_token(input))
-        .or_else(|| get_open_paren_token(input))
-        .or_else(|| get_close_paren_token(input))
-        .or_else(|| get_placeholder_token(input))
-        .or_else(|| get_number_token(input))
-        .or_else(|| get_reserved_word_token(input, previous_token))
-        .or_else(|| get_word_token(input))
-        .or_else(|| get_operator_token(input))
-        .expect("get_next_token received empty input")
-}
-
-fn get_whitespace_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::Whitespace, &WHITESPACE_REGEX)
-}
-
-fn get_comment_token(input: &str) -> Option<Token<'_>> {
-    get_line_comment_token(input).or_else(|| get_block_comment_token(input))
-}
-
-fn get_line_comment_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::LineComment, &LINE_COMMENT_REGEX)
-}
-
-fn get_block_comment_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::BlockComment, &BLOCK_COMMENT_REGEX)
-}
-
-fn get_string_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::String, &STRING_REGEX)
-}
-
-fn get_open_paren_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::OpenParen, &OPEN_PAREN_REGEX)
-}
-
-fn get_close_paren_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::CloseParen, &CLOSE_PAREN_REGEX)
-}
-
-fn get_placeholder_token(input: &str) -> Option<Token<'_>> {
-    get_ident_named_placeholder_token(input)
-        .or_else(|| get_string_named_placeholder_token(input))
-        .or_else(|| get_indexed_placeholder_token(input))
-}
-
-fn get_ident_named_placeholder_token(input: &str) -> Option<Token<'_>> {
-    get_placeholder_token_with_key(input, &IDENT_NAMED_PLACEHOLDER_REGEX, |v| {
-        Cow::Borrowed(&v[1..])
-    })
-}
-
-fn get_string_named_placeholder_token(input: &str) -> Option<Token<'_>> {
-    get_placeholder_token_with_key(input, &STRING_NAMED_PLACEHOLDER_REGEX, |v| {
-        get_escaped_placeholder_key(&v[2..v.len() - 1], &v[v.len() - 1..])
-    })
-}
-
-fn get_indexed_placeholder_token(input: &str) -> Option<Token<'_>> {
-    get_placeholder_token_with_key(input, &INDEXED_PLACEHOLDER_REGEX, |v| {
-        Cow::Borrowed(&v[1..])
-    })
-}
-
-fn get_placeholder_token_with_key<'a>(
-    input: &'a str,
-    regex: &Regex,
-    parse_key: fn(&'a str) -> Cow<'a, str>,
-) -> Option<Token<'a>> {
-    let mut token = get_token_on_first_match(input, TokenKind::Placeholder, regex);
-    if let Some(token) = token.as_mut() {
-        let key = parse_key(token.value);
-        if let Ok(key) = key.parse() {
-            if token.value.starts_with('$') {
-                token.key = Some(PlaceholderKind::OneIndexed(key))
-            } else {
-                token.key = Some(PlaceholderKind::ZeroIndexed(key))
-            }
-        } else {
-            token.key = Some(PlaceholderKind::Named(key))
-        };
-    }
-    token
-}
-
-fn get_escaped_placeholder_key<'a>(key: &'a str, quote_char: &str) -> Cow<'a, str> {
-    let regex = Regex::new(&regex::escape(&format!("\\{}", quote_char))).unwrap();
-    regex.replace_all(key, quote_char)
-}
-
-fn get_number_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::Number, &NUMBER_REGEX)
-}
-
-fn get_word_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::Word, &WORD_REGEX)
-}
-
-fn get_operator_token(input: &str) -> Option<Token<'_>> {
-    get_token_on_first_match(input, TokenKind::Operator, &OPERATOR_REGEX)
-}
-
-fn get_reserved_word_token<'a>(
+fn get_next_token<'a>(
     input: &'a str,
     previous_token: Option<&Token<'a>>,
-) -> Option<Token<'a>> {
-    // A reserved word cannot be preceded by a "."
-    // this makes it so in "my_table.from", "from" is not considered a reserved word
-    if let Some(token) = previous_token {
-        if token.value == "." {
-            return None;
-        }
-    }
-
-    get_top_level_reserved_token(input)
-        .or_else(|| get_newline_reserved_token(input))
-        .or_else(|| get_top_level_reserved_token_no_indent(input))
-        .or_else(|| get_plain_reserved_token(input))
+) -> IResult<&'a str, Token<'a>> {
+    get_whitespace_token(input)
+        .or_else(|_| get_comment_token(input))
+        .or_else(|_| get_string_token(input))
+        .or_else(|_| get_open_paren_token(input))
+        .or_else(|_| get_close_paren_token(input))
+        .or_else(|_| get_placeholder_token(input))
+        .or_else(|_| get_number_token(input))
+        .or_else(|_| get_reserved_word_token(input, previous_token))
+        .or_else(|_| get_word_token(input))
+        .or_else(|_| get_operator_token(input))
 }
 
-fn get_top_level_reserved_token(input: &str) -> Option<Token<'_>> {
-    get_word_token_on_first_match(
-        input,
-        TokenKind::ReservedTopLevel,
-        &RESERVED_TOP_LEVEL_WORDS,
-    )
-}
-
-fn get_newline_reserved_token(input: &str) -> Option<Token<'_>> {
-    get_word_token_on_first_match(input, TokenKind::ReservedNewline, RESERVED_NEWLINE_WORDS)
-}
-
-fn get_top_level_reserved_token_no_indent(input: &str) -> Option<Token<'_>> {
-    get_word_token_on_first_match(
-        input,
-        TokenKind::ReservedTopLevelNoIndent,
-        &RESERVED_TOP_LEVEL_WORDS_NO_INDENT,
-    )
-}
-
-fn get_plain_reserved_token(input: &str) -> Option<Token<'_>> {
-    get_word_token_on_first_match(input, TokenKind::Reserved, &RESERVED_WORDS)
-}
-
-fn get_word_token_on_first_match<'a>(
-    input: &'a str,
-    kind: TokenKind,
-    word_list: &[&str],
-) -> Option<Token<'a>> {
-    const MAX_WORDS: usize = 3;
-    let uc_input = input
-        .split_ascii_whitespace()
-        .take(MAX_WORDS)
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_ascii_uppercase();
-    for word in word_list {
-        if uc_input.starts_with(word)
-            && is_word_boundary(uc_input.chars().nth(word.len()).unwrap_or(' '))
-        {
-            let word_len = word.chars().filter(|c| *c != ' ').count();
-            let real_length = input
-                .chars()
-                .enumerate()
-                .filter(|&(_, c)| !c.is_ascii_whitespace())
-                .take(word_len)
-                .last()
-                .unwrap()
-                .0
-                + 1;
-            return Some(Token {
-                kind,
-                value: &input[..real_length],
+fn get_whitespace_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    take_while1(char::is_whitespace)(input).map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::Whitespace,
+                value: token,
                 key: None,
-            });
+            },
+        )
+    })
+}
+
+fn get_comment_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    get_line_comment_token(input).or_else(|_| get_block_comment_token(input))
+}
+
+fn get_line_comment_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    recognize(tuple((alt((tag("#"), tag("--"))), not_line_ending)))(input).map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::LineComment,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
+
+fn get_block_comment_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    recognize(tuple((
+        tag("/*"),
+        alt((take_until("*/"), recognize(many0(anychar)))),
+        opt(take(2usize)),
+    )))(input)
+    .map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::BlockComment,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
+
+pub fn take_till_escaping<'a, Error: ParseError<&'a str>>(
+    desired: char,
+    escapes: &'static [char],
+) -> impl Fn(&'a str) -> IResult<&'a str, &'a str, Error> {
+    move |input: &str| {
+        let mut chars = input.chars().enumerate().peekable();
+        let mut last = None;
+        loop {
+            let item = chars.next();
+            let next = chars.peek().map(|item| item.1);
+            match item {
+                Some(item) => {
+                    if item.1 == desired
+                        && !last.map(|item| escapes.contains(&item)).unwrap_or(false)
+                        && !(escapes.contains(&item.1) && Some(desired) == next)
+                    {
+                        return Ok((&input[item.0..], &input[..item.0]));
+                    }
+
+                    last = Some(item.1);
+                    continue;
+                }
+                None => {
+                    return Ok(("", input));
+                }
+            }
         }
     }
-    None
-}
-
-fn is_word_boundary(c: char) -> bool {
-    !(c.is_ascii_alphanumeric() || c == '_')
-}
-
-fn get_token_on_first_match<'a>(
-    input: &'a str,
-    kind: TokenKind,
-    regex: &Regex,
-) -> Option<Token<'a>> {
-    let matches = regex.captures(input);
-    if let Some(matches) = matches {
-        Some(Token {
-            kind,
-            value: matches.get(1).unwrap().as_str(),
-            key: None,
-        })
-    } else {
-        None
-    }
-}
-
-lazy_static! {
-    static ref WHITESPACE_REGEX: Regex = Regex::new(r"^(\s+)").unwrap();
-    static ref NUMBER_REGEX: Regex =
-        Regex::new(r"^((-\s*)?[0-9]+(\.[0-9]+)?|0x[0-9a-fA-F]+|0b[01]+)\b").unwrap();
-    static ref OPERATOR_REGEX: Regex =
-        Regex::new(r"^(!=|<>|==|<=|>=|!<|!>|\|\||::|->>|->|~~\*|~~|!~~\*|!~~|~\*|!~\*|!~|:=|.)")
-            .unwrap();
-    static ref BLOCK_COMMENT_REGEX: Regex = Regex::new(r"^(/\*[\s\S]*?(?:\*/|$))").unwrap();
-    static ref LINE_COMMENT_REGEX: Regex = create_line_comment_regex(LINE_COMMENT_TYPES);
-    static ref WORD_REGEX: Regex = Regex::new("^([\\p{Alphabetic}\\p{Mark}\\p{Decimal_Number}\\p{Connector_Punctuation}\\p{Join_Control}]+)").unwrap();
-    static ref STRING_REGEX: Regex = create_string_regex(STRING_TYPES);
-    static ref OPEN_PAREN_REGEX: Regex = create_paren_regex(OPEN_PARENS);
-    static ref CLOSE_PAREN_REGEX: Regex = create_paren_regex(CLOSE_PARENS);
-    static ref INDEXED_PLACEHOLDER_REGEX: Regex =
-        create_placeholder_regex(INDEXED_PLACEHOLDER_TYPES, "[0-9]*");
-    static ref IDENT_NAMED_PLACEHOLDER_REGEX: Regex =
-        create_placeholder_regex(NAMED_PLACEHOLDER_TYPES, "[a-zA-Z0-9._$]+");
-    static ref STRING_NAMED_PLACEHOLDER_REGEX: Regex = create_placeholder_regex(
-        NAMED_PLACEHOLDER_TYPES,
-        &create_string_pattern(STRING_TYPES)
-    );
-}
-
-fn create_line_comment_regex(items: &[&str]) -> Regex {
-    Regex::new(&format!(
-        "^((?:{}).*?(?:\r\n|\r|\n|$))",
-        items
-            .iter()
-            .map(|item| regex::escape(item))
-            .collect::<Vec<String>>()
-            .join("|")
-    ))
-    .unwrap()
-}
-
-fn create_string_regex(items: &[&str]) -> Regex {
-    Regex::new(&format!("^({})", create_string_pattern(items))).unwrap()
 }
 
 // This enables the following string patterns:
@@ -317,51 +174,766 @@ fn create_string_regex(items: &[&str]) -> Regex {
 // 3. double quoted string using "" or \" to escape
 // 4. single quoted string using '' or \' to escape
 // 5. national character quoted string using N'' or N\' to escape
-fn create_string_pattern(items: &[&str]) -> String {
-    let patterns = maplit::hashmap! {
-      "``" => "((`[^`]*($|`))+)",
-      "[]" => "((\\[[^\\]]*($|\\]))(\\][^\\]]*($|\\]))*)",
-      "\"\"" => "((\"[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*(\"|$))+)",
-      "''" => "(('[^'\\\\]*(?:\\\\.[^'\\\\]*)*('|$))+)",
-      "N''" => "((N'[^N'\\\\]*(?:\\\\.[^N'\\\\]*)*('|$))+)"
-    };
+fn get_string_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    alt((
+        recognize(tuple((
+            char('`'),
+            take_till_escaping('`', &['`']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('['),
+            take_till_escaping(']', &[']']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('"'),
+            take_till_escaping('"', &['"', '\\']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('\''),
+            take_till_escaping('\'', &['\'', '\\']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            tag("N'"),
+            take_till_escaping('\'', &['\'', '\\']),
+            take(1usize),
+        ))),
+    ))(input)
+    .map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::String,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
 
-    items
-        .iter()
-        .map(|item| patterns[item])
+// Like above but it doesn't replace double quotes
+fn get_placeholder_string_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    alt((
+        recognize(tuple((
+            char('`'),
+            take_till_escaping('`', &['`']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('['),
+            take_till_escaping(']', &[']']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('"'),
+            take_till_escaping('"', &['\\']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            char('\''),
+            take_till_escaping('\'', &['\\']),
+            take(1usize),
+        ))),
+        recognize(tuple((
+            tag("N'"),
+            take_till_escaping('\'', &['\\']),
+            take(1usize),
+        ))),
+    ))(input)
+    .map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::String,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
+
+fn get_open_paren_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    alt((tag("("), terminated(tag_no_case("CASE"), end_of_word)))(input).map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::OpenParen,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
+
+fn get_close_paren_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    alt((tag(")"), terminated(tag_no_case("END"), end_of_word)))(input).map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::CloseParen,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
+
+fn get_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    alt((
+        get_ident_named_placeholder_token,
+        get_string_named_placeholder_token,
+        get_indexed_placeholder_token,
+    ))(input)
+}
+
+fn get_indexed_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    alt((
+        recognize(tuple((alt((char('?'), char('$'))), digit1))),
+        recognize(char('?')),
+    ))(input)
+    .map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::Placeholder,
+                value: token,
+                key: if token.starts_with('$') {
+                    let index = token[1..].parse::<usize>().unwrap();
+                    Some(PlaceholderKind::OneIndexed(index))
+                } else if token.len() > 1 {
+                    let index = token[1..].parse::<usize>().unwrap();
+                    Some(PlaceholderKind::ZeroIndexed(index))
+                } else {
+                    None
+                },
+            },
+        )
+    })
+}
+
+fn get_ident_named_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    recognize(tuple((
+        alt((char('@'), char(':'))),
+        take_while1(|item: char| {
+            item.is_alphanumeric() || item == '.' || item == '_' || item == '$'
+        }),
+    )))(input)
+    .map(|(input, token)| {
+        let index = Cow::Borrowed(&token[1..]);
+        (
+            input,
+            Token {
+                kind: TokenKind::Placeholder,
+                value: token,
+                key: Some(PlaceholderKind::Named(index)),
+            },
+        )
+    })
+}
+
+fn get_string_named_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    recognize(tuple((
+        alt((char('@'), char(':'))),
+        get_placeholder_string_token,
+    )))(input)
+    .map(|(input, token)| {
+        let index =
+            get_escaped_placeholder_key(&token[2..token.len() - 1], &token[token.len() - 1..]);
+        (
+            input,
+            Token {
+                kind: TokenKind::Placeholder,
+                value: token,
+                key: Some(PlaceholderKind::Named(index)),
+            },
+        )
+    })
+}
+
+fn get_escaped_placeholder_key<'a>(key: &'a str, quote_char: &str) -> Cow<'a, str> {
+    Cow::Owned(key.replace(&format!("\\{}", quote_char), quote_char))
+}
+
+fn get_number_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    recognize(tuple((opt(tag("-")), alt((decimal_number, digit1)))))(input).map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::Number,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
+
+fn decimal_number<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+    recognize(tuple((digit1, tag("."), digit0)))(input)
+}
+
+fn get_reserved_word_token<'a>(
+    input: &'a str,
+    previous_token: Option<&Token<'a>>,
+) -> IResult<&'a str, Token<'a>> {
+    // A reserved word cannot be preceded by a "."
+    // this makes it so in "my_table.from", "from" is not considered a reserved word
+    if let Some(token) = previous_token {
+        if token.value == "." {
+            return Err(Err::Error(Error::new(input, ErrorKind::IsNot)));
+        }
+    }
+
+    alt((
+        get_top_level_reserved_token,
+        get_newline_reserved_token,
+        get_top_level_reserved_token_no_indent,
+        get_plain_reserved_token,
+    ))(input)
+}
+
+// We have to be a bit creative here for performance reasons
+fn get_uc_words(input: &str, words: usize) -> String {
+    input
+        .split_whitespace()
+        .take(words)
         .collect::<Vec<&str>>()
-        .join("|")
+        .join(" ")
+        .to_ascii_uppercase()
 }
 
-fn create_paren_regex(items: &[&str]) -> Regex {
-    Regex::new(&format!(
-        "^((?i){})",
-        items
-            .iter()
-            .map(|item| escape_paren(item))
-            .collect::<Vec<String>>()
-            .join("|")
-    ))
-    .unwrap()
-}
-
-fn escape_paren(paren: &str) -> String {
-    if paren.len() == 1 {
-        regex::escape(paren)
+fn get_top_level_reserved_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    let uc_input = get_uc_words(input, 3);
+    let result: IResult<&str, &str> = alt((
+        terminated(tag("ADD"), end_of_word),
+        terminated(tag("AFTER"), end_of_word),
+        terminated(tag("ALTER COLUMN"), end_of_word),
+        terminated(tag("ALTER TABLE"), end_of_word),
+        terminated(tag("DELETE FROM"), end_of_word),
+        terminated(tag("EXCEPT"), end_of_word),
+        terminated(tag("FETCH FIRST"), end_of_word),
+        terminated(tag("FROM"), end_of_word),
+        terminated(tag("GROUP BY"), end_of_word),
+        terminated(tag("GO"), end_of_word),
+        terminated(tag("HAVING"), end_of_word),
+        terminated(tag("INSERT INTO"), end_of_word),
+        terminated(tag("INSERT"), end_of_word),
+        terminated(tag("LIMIT"), end_of_word),
+        terminated(tag("MODIFY"), end_of_word),
+        terminated(tag("ORDER BY"), end_of_word),
+        terminated(tag("SELECT"), end_of_word),
+        terminated(tag("SET CURRENT SCHEMA"), end_of_word),
+        terminated(tag("SET SCHEMA"), end_of_word),
+        terminated(tag("SET"), end_of_word),
+        alt((
+            terminated(tag("UPDATE"), end_of_word),
+            terminated(tag("VALUES"), end_of_word),
+            terminated(tag("WHERE"), end_of_word),
+        )),
+    ))(&uc_input);
+    if let Ok((_, token)) = result {
+        let final_word = token.split(' ').last().unwrap();
+        let input_end_pos =
+            input.to_ascii_uppercase().find(&final_word).unwrap() + final_word.len();
+        let (token, input) = input.split_at(input_end_pos);
+        Ok((
+            input,
+            Token {
+                kind: TokenKind::ReservedTopLevel,
+                value: token,
+                key: None,
+            },
+        ))
     } else {
-        format!("\\b{}\\b", paren)
+        Err(Err::Error(Error::new(input, ErrorKind::Alt)))
     }
 }
 
-fn create_placeholder_regex(items: &[&str], pattern: &str) -> Regex {
-    Regex::new(&format!(
-        "^((?:{})(?:{}))",
-        items
-            .iter()
-            .map(|item| regex::escape(item))
-            .collect::<Vec<String>>()
-            .join("|"),
-        pattern
-    ))
-    .unwrap()
+fn get_newline_reserved_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    let uc_input = get_uc_words(input, 3);
+    let result: IResult<&str, &str> = alt((
+        terminated(tag("AND"), end_of_word),
+        terminated(tag("CROSS APPLY"), end_of_word),
+        terminated(tag("CROSS JOIN"), end_of_word),
+        terminated(tag("ELSE"), end_of_word),
+        terminated(tag("INNER JOIN"), end_of_word),
+        terminated(tag("JOIN"), end_of_word),
+        terminated(tag("LEFT JOIN"), end_of_word),
+        terminated(tag("LEFT OUTER JOIN"), end_of_word),
+        terminated(tag("OR"), end_of_word),
+        terminated(tag("OUTER APPLY"), end_of_word),
+        terminated(tag("OUTER JOIN"), end_of_word),
+        terminated(tag("RIGHT JOIN"), end_of_word),
+        terminated(tag("RIGHT OUTER JOIN"), end_of_word),
+        terminated(tag("WHEN"), end_of_word),
+        terminated(tag("XOR"), end_of_word),
+    ))(&uc_input);
+    if let Ok((_, token)) = result {
+        let final_word = token.split(' ').last().unwrap();
+        let input_end_pos =
+            input.to_ascii_uppercase().find(&final_word).unwrap() + final_word.len();
+        let (token, input) = input.split_at(input_end_pos);
+        Ok((
+            input,
+            Token {
+                kind: TokenKind::ReservedNewline,
+                value: token,
+                key: None,
+            },
+        ))
+    } else {
+        Err(Err::Error(Error::new(input, ErrorKind::Alt)))
+    }
+}
+
+fn get_top_level_reserved_token_no_indent<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    let uc_input = get_uc_words(input, 2);
+    let result: IResult<&str, &str> = alt((
+        terminated(tag("INTERSECT"), end_of_word),
+        terminated(tag("INTERSECT ALL"), end_of_word),
+        terminated(tag("MINUS"), end_of_word),
+        terminated(tag("UNION"), end_of_word),
+        terminated(tag("UNION ALL"), end_of_word),
+    ))(&uc_input);
+    if let Ok((_, token)) = result {
+        let final_word = token.split(' ').last().unwrap();
+        let input_end_pos =
+            input.to_ascii_uppercase().find(&final_word).unwrap() + final_word.len();
+        let (token, input) = input.split_at(input_end_pos);
+        Ok((
+            input,
+            Token {
+                kind: TokenKind::ReservedTopLevelNoIndent,
+                value: token,
+                key: None,
+            },
+        ))
+    } else {
+        Err(Err::Error(Error::new(input, ErrorKind::Alt)))
+    }
+}
+
+fn get_plain_reserved_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    let uc_input = get_uc_words(input, 1);
+    let result: IResult<&str, &str> = alt((
+        terminated(tag("ACCESSIBLE"), end_of_word),
+        terminated(tag("ACTION"), end_of_word),
+        terminated(tag("AGAINST"), end_of_word),
+        terminated(tag("AGGREGATE"), end_of_word),
+        terminated(tag("ALGORITHM"), end_of_word),
+        terminated(tag("ALL"), end_of_word),
+        terminated(tag("ALTER"), end_of_word),
+        terminated(tag("ANALYSE"), end_of_word),
+        terminated(tag("ANALYZE"), end_of_word),
+        terminated(tag("AS"), end_of_word),
+        terminated(tag("ASC"), end_of_word),
+        terminated(tag("AUTOCOMMIT"), end_of_word),
+        terminated(tag("AUTO_INCREMENT"), end_of_word),
+        terminated(tag("BACKUP"), end_of_word),
+        terminated(tag("BEGIN"), end_of_word),
+        terminated(tag("BETWEEN"), end_of_word),
+        terminated(tag("BINLOG"), end_of_word),
+        terminated(tag("BOTH"), end_of_word),
+        terminated(tag("CASCADE"), end_of_word),
+        terminated(tag("CASE"), end_of_word),
+        alt((
+            terminated(tag("CHANGE"), end_of_word),
+            terminated(tag("CHANGED"), end_of_word),
+            terminated(tag("CHARACTER SET"), end_of_word),
+            terminated(tag("CHARSET"), end_of_word),
+            terminated(tag("CHECK"), end_of_word),
+            terminated(tag("CHECKSUM"), end_of_word),
+            terminated(tag("COLLATE"), end_of_word),
+            terminated(tag("COLLATION"), end_of_word),
+            terminated(tag("COLUMN"), end_of_word),
+            terminated(tag("COLUMNS"), end_of_word),
+            terminated(tag("COMMENT"), end_of_word),
+            terminated(tag("COMMIT"), end_of_word),
+            terminated(tag("COMMITTED"), end_of_word),
+            terminated(tag("COMPRESSED"), end_of_word),
+            terminated(tag("CONCURRENT"), end_of_word),
+            terminated(tag("CONSTRAINT"), end_of_word),
+            terminated(tag("CONTAINS"), end_of_word),
+            terminated(tag("CONVERT"), end_of_word),
+            terminated(tag("CREATE"), end_of_word),
+            terminated(tag("CROSS"), end_of_word),
+            alt((
+                terminated(tag("CURRENT_TIMESTAMP"), end_of_word),
+                terminated(tag("DATABASE"), end_of_word),
+                terminated(tag("DATABASES"), end_of_word),
+                terminated(tag("DAY"), end_of_word),
+                terminated(tag("DAY_HOUR"), end_of_word),
+                terminated(tag("DAY_MINUTE"), end_of_word),
+                terminated(tag("DAY_SECOND"), end_of_word),
+                terminated(tag("DEFAULT"), end_of_word),
+                terminated(tag("DEFINER"), end_of_word),
+                terminated(tag("DELAYED"), end_of_word),
+                terminated(tag("DELETE"), end_of_word),
+                terminated(tag("DESC"), end_of_word),
+                terminated(tag("DESCRIBE"), end_of_word),
+                terminated(tag("DETERMINISTIC"), end_of_word),
+                terminated(tag("DISTINCT"), end_of_word),
+                terminated(tag("DISTINCTROW"), end_of_word),
+                terminated(tag("DIV"), end_of_word),
+                terminated(tag("DO"), end_of_word),
+                terminated(tag("DROP"), end_of_word),
+                terminated(tag("DUMPFILE"), end_of_word),
+                alt((
+                    terminated(tag("DUPLICATE"), end_of_word),
+                    terminated(tag("DYNAMIC"), end_of_word),
+                    terminated(tag("ELSE"), end_of_word),
+                    terminated(tag("ENCLOSED"), end_of_word),
+                    terminated(tag("END"), end_of_word),
+                    terminated(tag("ENGINE"), end_of_word),
+                    terminated(tag("ENGINES"), end_of_word),
+                    terminated(tag("ENGINE_TYPE"), end_of_word),
+                    terminated(tag("ESCAPE"), end_of_word),
+                    terminated(tag("ESCAPED"), end_of_word),
+                    terminated(tag("EVENTS"), end_of_word),
+                    terminated(tag("EXEC"), end_of_word),
+                    terminated(tag("EXECUTE"), end_of_word),
+                    terminated(tag("EXISTS"), end_of_word),
+                    terminated(tag("EXPLAIN"), end_of_word),
+                    terminated(tag("EXTENDED"), end_of_word),
+                    terminated(tag("FAST"), end_of_word),
+                    terminated(tag("FETCH"), end_of_word),
+                    terminated(tag("FIELDS"), end_of_word),
+                    alt((
+                        terminated(tag("FILE"), end_of_word),
+                        terminated(tag("FIRST"), end_of_word),
+                        terminated(tag("FIXED"), end_of_word),
+                        terminated(tag("FLUSH"), end_of_word),
+                        terminated(tag("FOR"), end_of_word),
+                        terminated(tag("FORCE"), end_of_word),
+                        terminated(tag("FOREIGN"), end_of_word),
+                        terminated(tag("FULL"), end_of_word),
+                        terminated(tag("FULLTEXT"), end_of_word),
+                        terminated(tag("FUNCTION"), end_of_word),
+                        terminated(tag("GLOBAL"), end_of_word),
+                        terminated(tag("GRANT"), end_of_word),
+                        terminated(tag("GRANTS"), end_of_word),
+                        terminated(tag("GROUP_CONCAT"), end_of_word),
+                        terminated(tag("HEAP"), end_of_word),
+                        terminated(tag("HIGH_PRIORITY"), end_of_word),
+                        terminated(tag("HOSTS"), end_of_word),
+                        terminated(tag("HOUR"), end_of_word),
+                        terminated(tag("HOUR_MINUTE"), end_of_word),
+                        terminated(tag("HOUR_SECOND"), end_of_word),
+                        alt((
+                            terminated(tag("IDENTIFIED"), end_of_word),
+                            terminated(tag("IF"), end_of_word),
+                            terminated(tag("IFNULL"), end_of_word),
+                            terminated(tag("IGNORE"), end_of_word),
+                            terminated(tag("IN"), end_of_word),
+                            terminated(tag("INDEX"), end_of_word),
+                            terminated(tag("INDEXES"), end_of_word),
+                            terminated(tag("INFILE"), end_of_word),
+                            terminated(tag("INSERT"), end_of_word),
+                            terminated(tag("INSERT_ID"), end_of_word),
+                            terminated(tag("INSERT_METHOD"), end_of_word),
+                            terminated(tag("INTERVAL"), end_of_word),
+                            terminated(tag("INTO"), end_of_word),
+                            terminated(tag("INVOKER"), end_of_word),
+                            terminated(tag("IS"), end_of_word),
+                            terminated(tag("ISOLATION"), end_of_word),
+                            terminated(tag("KEY"), end_of_word),
+                            terminated(tag("KEYS"), end_of_word),
+                            terminated(tag("KILL"), end_of_word),
+                            terminated(tag("LAST_INSERT_ID"), end_of_word),
+                            alt((
+                                terminated(tag("LEADING"), end_of_word),
+                                terminated(tag("LEVEL"), end_of_word),
+                                terminated(tag("LIKE"), end_of_word),
+                                terminated(tag("LINEAR"), end_of_word),
+                                terminated(tag("LINES"), end_of_word),
+                                terminated(tag("LOAD"), end_of_word),
+                                terminated(tag("LOCAL"), end_of_word),
+                                terminated(tag("LOCK"), end_of_word),
+                                terminated(tag("LOCKS"), end_of_word),
+                                terminated(tag("LOGS"), end_of_word),
+                                terminated(tag("LOW_PRIORITY"), end_of_word),
+                                terminated(tag("MARIA"), end_of_word),
+                                terminated(tag("MASTER"), end_of_word),
+                                terminated(tag("MASTER_CONNECT_RETRY"), end_of_word),
+                                terminated(tag("MASTER_HOST"), end_of_word),
+                                terminated(tag("MASTER_LOG_FILE"), end_of_word),
+                                terminated(tag("MATCH"), end_of_word),
+                                terminated(tag("MAX_CONNECTIONS_PER_HOUR"), end_of_word),
+                                terminated(tag("MAX_QUERIES_PER_HOUR"), end_of_word),
+                                terminated(tag("MAX_ROWS"), end_of_word),
+                                alt((
+                                    terminated(tag("MAX_UPDATES_PER_HOUR"), end_of_word),
+                                    terminated(tag("MAX_USER_CONNECTIONS"), end_of_word),
+                                    terminated(tag("MEDIUM"), end_of_word),
+                                    terminated(tag("MERGE"), end_of_word),
+                                    terminated(tag("MINUTE"), end_of_word),
+                                    terminated(tag("MINUTE_SECOND"), end_of_word),
+                                    terminated(tag("MIN_ROWS"), end_of_word),
+                                    terminated(tag("MODE"), end_of_word),
+                                    terminated(tag("MODIFY"), end_of_word),
+                                    terminated(tag("MONTH"), end_of_word),
+                                    terminated(tag("MRG_MYISAM"), end_of_word),
+                                    terminated(tag("MYISAM"), end_of_word),
+                                    terminated(tag("NAMES"), end_of_word),
+                                    terminated(tag("NATURAL"), end_of_word),
+                                    terminated(tag("NOT"), end_of_word),
+                                    terminated(tag("NOW()"), end_of_word),
+                                    terminated(tag("NULL"), end_of_word),
+                                    terminated(tag("OFFSET"), end_of_word),
+                                    terminated(tag("ON DELETE"), end_of_word),
+                                    terminated(tag("ON UPDATE"), end_of_word),
+                                    alt((
+                                        terminated(tag("ON"), end_of_word),
+                                        terminated(tag("ONLY"), end_of_word),
+                                        terminated(tag("OPEN"), end_of_word),
+                                        terminated(tag("OPTIMIZE"), end_of_word),
+                                        terminated(tag("OPTION"), end_of_word),
+                                        terminated(tag("OPTIONALLY"), end_of_word),
+                                        terminated(tag("OUTFILE"), end_of_word),
+                                        terminated(tag("PACK_KEYS"), end_of_word),
+                                        terminated(tag("PAGE"), end_of_word),
+                                        terminated(tag("PARTIAL"), end_of_word),
+                                        terminated(tag("PARTITION"), end_of_word),
+                                        terminated(tag("PARTITIONS"), end_of_word),
+                                        terminated(tag("PASSWORD"), end_of_word),
+                                        terminated(tag("PRIMARY"), end_of_word),
+                                        terminated(tag("PRIVILEGES"), end_of_word),
+                                        terminated(tag("PROCEDURE"), end_of_word),
+                                        terminated(tag("PROCESS"), end_of_word),
+                                        terminated(tag("PROCESSLIST"), end_of_word),
+                                        terminated(tag("PURGE"), end_of_word),
+                                        terminated(tag("QUICK"), end_of_word),
+                                        alt((
+                                            terminated(tag("RAID0"), end_of_word),
+                                            terminated(tag("RAID_CHUNKS"), end_of_word),
+                                            terminated(tag("RAID_CHUNKSIZE"), end_of_word),
+                                            terminated(tag("RAID_TYPE"), end_of_word),
+                                            terminated(tag("RANGE"), end_of_word),
+                                            terminated(tag("READ"), end_of_word),
+                                            terminated(tag("READ_ONLY"), end_of_word),
+                                            terminated(tag("READ_WRITE"), end_of_word),
+                                            terminated(tag("REFERENCES"), end_of_word),
+                                            terminated(tag("REGEXP"), end_of_word),
+                                            terminated(tag("RELOAD"), end_of_word),
+                                            terminated(tag("RENAME"), end_of_word),
+                                            terminated(tag("REPAIR"), end_of_word),
+                                            terminated(tag("REPEATABLE"), end_of_word),
+                                            terminated(tag("REPLACE"), end_of_word),
+                                            terminated(tag("REPLICATION"), end_of_word),
+                                            terminated(tag("RESET"), end_of_word),
+                                            terminated(tag("RESTORE"), end_of_word),
+                                            terminated(tag("RESTRICT"), end_of_word),
+                                            terminated(tag("RETURN"), end_of_word),
+                                            alt((
+                                                terminated(tag("RETURNS"), end_of_word),
+                                                terminated(tag("REVOKE"), end_of_word),
+                                                terminated(tag("RLIKE"), end_of_word),
+                                                terminated(tag("ROLLBACK"), end_of_word),
+                                                terminated(tag("ROW"), end_of_word),
+                                                terminated(tag("ROWS"), end_of_word),
+                                                terminated(tag("ROW_FORMAT"), end_of_word),
+                                                terminated(tag("SECOND"), end_of_word),
+                                                terminated(tag("SECURITY"), end_of_word),
+                                                terminated(tag("SEPARATOR"), end_of_word),
+                                                terminated(tag("SERIALIZABLE"), end_of_word),
+                                                terminated(tag("SESSION"), end_of_word),
+                                                terminated(tag("SHARE"), end_of_word),
+                                                terminated(tag("SHOW"), end_of_word),
+                                                terminated(tag("SHUTDOWN"), end_of_word),
+                                                terminated(tag("SLAVE"), end_of_word),
+                                                terminated(tag("SONAME"), end_of_word),
+                                                terminated(tag("SOUNDS"), end_of_word),
+                                                terminated(tag("SQL"), end_of_word),
+                                                terminated(tag("SQL_AUTO_IS_NULL"), end_of_word),
+                                                alt((
+                                                    terminated(tag("SQL_BIG_RESULT"), end_of_word),
+                                                    terminated(tag("SQL_BIG_SELECTS"), end_of_word),
+                                                    terminated(tag("SQL_BIG_TABLES"), end_of_word),
+                                                    terminated(
+                                                        tag("SQL_BUFFER_RESULT"),
+                                                        end_of_word,
+                                                    ),
+                                                    terminated(tag("SQL_CACHE"), end_of_word),
+                                                    terminated(
+                                                        tag("SQL_CALC_FOUND_ROWS"),
+                                                        end_of_word,
+                                                    ),
+                                                    terminated(tag("SQL_LOG_BIN"), end_of_word),
+                                                    terminated(tag("SQL_LOG_OFF"), end_of_word),
+                                                    terminated(tag("SQL_LOG_UPDATE"), end_of_word),
+                                                    terminated(
+                                                        tag("SQL_LOW_PRIORITY_UPDATES"),
+                                                        end_of_word,
+                                                    ),
+                                                    terminated(
+                                                        tag("SQL_MAX_JOIN_SIZE"),
+                                                        end_of_word,
+                                                    ),
+                                                    terminated(tag("SQL_NO_CACHE"), end_of_word),
+                                                    terminated(
+                                                        tag("SQL_QUOTE_SHOW_CREATE"),
+                                                        end_of_word,
+                                                    ),
+                                                    terminated(
+                                                        tag("SQL_SAFE_UPDATES"),
+                                                        end_of_word,
+                                                    ),
+                                                    terminated(
+                                                        tag("SQL_SELECT_LIMIT"),
+                                                        end_of_word,
+                                                    ),
+                                                    terminated(
+                                                        tag("SQL_SLAVE_SKIP_COUNTER"),
+                                                        end_of_word,
+                                                    ),
+                                                    terminated(
+                                                        tag("SQL_SMALL_RESULT"),
+                                                        end_of_word,
+                                                    ),
+                                                    terminated(tag("SQL_WARNINGS"), end_of_word),
+                                                    terminated(tag("START"), end_of_word),
+                                                    terminated(tag("STARTING"), end_of_word),
+                                                    alt((
+                                                        terminated(tag("STATUS"), end_of_word),
+                                                        terminated(tag("STOP"), end_of_word),
+                                                        terminated(tag("STORAGE"), end_of_word),
+                                                        terminated(
+                                                            tag("STRAIGHT_JOIN"),
+                                                            end_of_word,
+                                                        ),
+                                                        terminated(tag("STRING"), end_of_word),
+                                                        terminated(tag("STRIPED"), end_of_word),
+                                                        terminated(tag("SUPER"), end_of_word),
+                                                        terminated(tag("TABLE"), end_of_word),
+                                                        terminated(tag("TABLES"), end_of_word),
+                                                        terminated(tag("TEMPORARY"), end_of_word),
+                                                        terminated(tag("TERMINATED"), end_of_word),
+                                                        terminated(tag("THEN"), end_of_word),
+                                                        terminated(tag("TO"), end_of_word),
+                                                        terminated(tag("TRAILING"), end_of_word),
+                                                        terminated(
+                                                            tag("TRANSACTIONAL"),
+                                                            end_of_word,
+                                                        ),
+                                                        terminated(tag("TRUE"), end_of_word),
+                                                        terminated(tag("TRUNCATE"), end_of_word),
+                                                        terminated(tag("TYPE"), end_of_word),
+                                                        terminated(tag("TYPES"), end_of_word),
+                                                        terminated(tag("UNCOMMITTED"), end_of_word),
+                                                        alt((
+                                                            terminated(tag("UNIQUE"), end_of_word),
+                                                            terminated(tag("UNLOCK"), end_of_word),
+                                                            terminated(
+                                                                tag("UNSIGNED"),
+                                                                end_of_word,
+                                                            ),
+                                                            terminated(tag("USAGE"), end_of_word),
+                                                            terminated(tag("USE"), end_of_word),
+                                                            terminated(tag("USING"), end_of_word),
+                                                            terminated(
+                                                                tag("VARIABLES"),
+                                                                end_of_word,
+                                                            ),
+                                                            terminated(tag("VIEW"), end_of_word),
+                                                            terminated(tag("WHEN"), end_of_word),
+                                                            terminated(tag("WITH"), end_of_word),
+                                                            terminated(tag("WORK"), end_of_word),
+                                                            terminated(tag("WRITE"), end_of_word),
+                                                            terminated(
+                                                                tag("YEAR_MONTH"),
+                                                                end_of_word,
+                                                            ),
+                                                        )),
+                                                    )),
+                                                )),
+                                            )),
+                                        )),
+                                    )),
+                                )),
+                            )),
+                        )),
+                    )),
+                )),
+            )),
+        )),
+    ))(&uc_input);
+    if let Ok((_, token)) = result {
+        let input_end_pos = token.len();
+        let (token, input) = input.split_at(input_end_pos);
+        Ok((
+            input,
+            Token {
+                kind: TokenKind::Reserved,
+                value: token,
+                key: None,
+            },
+        ))
+    } else {
+        Err(Err::Error(Error::new(input, ErrorKind::Alt)))
+    }
+}
+
+fn get_word_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    take_while1(is_word_character)(input).map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::Word,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
+
+fn get_operator_token<'a>(input: &'a str) -> IResult<&'a str, Token<'a>> {
+    alt((
+        tag("!="),
+        tag("<>"),
+        tag("=="),
+        tag("<="),
+        tag(">="),
+        tag("!<"),
+        tag("!>"),
+        tag("||"),
+        tag("::"),
+        tag("->>"),
+        tag("->"),
+        tag("~~*"),
+        tag("~~"),
+        tag("!~~*"),
+        tag("!~~"),
+        tag("~*"),
+        tag("!~*"),
+        tag("!~"),
+        tag(":="),
+        recognize(verify(take(1usize), |token: &str| {
+            token != "\n" && token != "\r"
+        })),
+    ))(input)
+    .map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::Operator,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
+
+fn end_of_word<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+    peek(alt((
+        eof,
+        verify(take(1usize), |val: &str| {
+            !is_word_character(val.chars().next().unwrap())
+        }),
+    )))(input)
+}
+
+fn is_word_character(item: char) -> bool {
+    item.is_alphanumeric() || item.is_mark() || item.is_punctuation_connector()
 }

@@ -1,3 +1,7 @@
+### Version 0.1.4
+
+- Attempt again to fix the issue some users experience where this crate would fail to compile
+
 ### Version 0.1.3
 
 - Fix an issue some users experienced where this crate would fail to compile

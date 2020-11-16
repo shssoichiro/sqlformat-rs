@@ -2,7 +2,7 @@
 //! written in Rust. It is intended to be usable as a pure-Rust library
 //! for formatting SQL queries.
 
-#![type_length_limit = "42037006"]
+#![type_length_limit = "99999999"]
 #![forbid(unsafe_code)]
 
 mod formatter;

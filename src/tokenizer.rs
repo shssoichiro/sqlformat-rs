@@ -301,8 +301,8 @@ fn get_indexed_placeholder_token<'a>(input: &'a str) -> IResult<&'a str, Token<'
             Token {
                 kind: TokenKind::Placeholder,
                 value: token,
-                key: if token.starts_with('$') {
-                    let index = token[1..].parse::<usize>().unwrap();
+                key: if let Some(value) = token.strip_prefix('$') {
+                    let index = value.parse::<usize>().unwrap();
                     Some(PlaceholderKind::OneIndexed(index))
                 } else if token.len() > 1 {
                     let index = token[1..].parse::<usize>().unwrap();

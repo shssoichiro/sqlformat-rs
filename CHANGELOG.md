@@ -1,3 +1,7 @@
+### Version 0.1.5
+
+- Fix a possible panic on multibyte unicode strings
+
 ### Version 0.1.4
 
 - Attempt again to fix the issue some users experience where this crate would fail to compile

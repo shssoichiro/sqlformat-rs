@@ -1375,4 +1375,13 @@ mod tests {
 
         assert_eq!(format(input, &QueryParams::None, options), input);
     }
+
+    #[test]
+    fn it_formats_multibyte_chars() {
+        let input = "\nSELECT 'главная'";
+        let options = FormatOptions::default();
+        let expected = "SELECT\n  'главная'";
+
+        assert_eq!(format(input, &QueryParams::None, options), expected);
+    }
 }

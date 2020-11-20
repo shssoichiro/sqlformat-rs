@@ -6,7 +6,7 @@ use nom::error::ParseError;
 use nom::error::{Error, ErrorKind};
 use nom::multi::many0;
 use nom::sequence::{terminated, tuple};
-use nom::{Err, IResult};
+use nom::{AsChar, Err, IResult};
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
 
@@ -154,7 +154,8 @@ pub fn take_till_escaping<'a, Error: ParseError<&'a str>>(
                         && !last.map(|item| escapes.contains(&item)).unwrap_or(false)
                         && !(escapes.contains(&item.1) && Some(desired) == next)
                     {
-                        return Ok((&input[item.0..], &input[..item.0]));
+                        let byte_pos = input.chars().take(item.0).map(|c| c.len()).sum::<usize>();
+                        return Ok((&input[byte_pos..], &input[..byte_pos]));
                     }
 
                     last = Some(item.1);

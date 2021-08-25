@@ -1,3 +1,7 @@
+### Version 0.1.7
+
+- Bump nom to 7.0, which reportedly also fixes some build issues
+
 ### Version 0.1.6
 
 - Fix compatibility with Rust 1.44 which was broken in 0.1.5

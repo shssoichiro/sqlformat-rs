@@ -223,6 +223,8 @@ impl<'a> Formatter<'a> {
     }
 
     fn indent_comment(&self, token: &str) -> String {
+        let indent = self.indentation.get_indent();
+
         token
             .split('\n')
             .enumerate()
@@ -235,10 +237,8 @@ impl<'a> Formatter<'a> {
                 }
                 format!(
                     "{} {}",
-                    self.indentation.get_indent(),
-                    line.chars()
-                        .skip_while(|&c| c == ' ' || c == '\t')
-                        .collect::<String>()
+                    &indent,
+                    line.trim_start_matches(|c| c == ' ' || c == '\t'),
                 )
             })
             .join("\n")

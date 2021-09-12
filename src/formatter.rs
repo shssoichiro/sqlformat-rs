@@ -3,7 +3,6 @@ use crate::inline_block::InlineBlock;
 use crate::params::Params;
 use crate::tokenizer::{Token, TokenKind};
 use crate::{FormatOptions, QueryParams};
-use itertools::Itertools;
 use std::borrow::Cow;
 
 pub(crate) fn format(tokens: &[Token<'_>], params: &QueryParams, options: FormatOptions) -> String {
@@ -230,18 +229,20 @@ impl<'a> Formatter<'a> {
             .enumerate()
             .map(|(i, line)| {
                 if i == 0 {
-                    return line.to_string();
+                    return [line, "", ""];
                 }
                 if !line.starts_with(|c| c == ' ' || c == '\t') {
-                    return line.to_string();
+                    return [line, "", ""];
                 }
-                format!(
-                    "{} {}",
+                [
                     &indent,
+                    " ",
                     line.trim_start_matches(|c| c == ' ' || c == '\t'),
-                )
+                ]
             })
-            .join("\n")
+            .intersperse(["\n", "", ""])
+            .flatten()
+            .collect()
     }
 
     fn format_reserved_word<'t>(&self, token: &'t str) -> Cow<'t, str> {
@@ -257,7 +258,8 @@ impl<'a> Formatter<'a> {
         token
             .split(char::is_whitespace)
             .filter(|s| !s.is_empty())
-            .join(" ")
+            .intersperse(" ")
+            .collect()
     }
 
     fn previous_token(&self) -> Option<&Token<'_>> {

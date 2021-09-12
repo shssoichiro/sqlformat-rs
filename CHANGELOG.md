@@ -1,3 +1,8 @@
+### Version 0.1.8
+
+- Remove regex dependency
+- Remove unused maplit dependency
+
 ### Version 0.1.7
 
 - Bump nom to 7.0, which reportedly also fixes some build issues

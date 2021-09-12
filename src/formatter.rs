@@ -3,8 +3,7 @@ use crate::inline_block::InlineBlock;
 use crate::params::Params;
 use crate::tokenizer::{Token, TokenKind};
 use crate::{FormatOptions, QueryParams};
-use lazy_static::lazy_static;
-use regex::Regex;
+use itertools::Itertools;
 use std::borrow::Cow;
 
 pub(crate) fn format(tokens: &[Token<'_>], params: &QueryParams, options: FormatOptions) -> String {
@@ -223,12 +222,26 @@ impl<'a> Formatter<'a> {
         query.truncate(query.trim_end_matches(|c| c == ' ' || c == '\t').len());
     }
 
-    fn indent_comment<'t>(&self, token: &'t str) -> Cow<'t, str> {
-        lazy_static! {
-            static ref REGEX: Regex = Regex::new(r"\n[ \t]*").unwrap();
-        }
-        let replacement = format!("\n{} ", self.indentation.get_indent());
-        REGEX.replace_all(token, replacement.as_str())
+    fn indent_comment(&self, token: &str) -> String {
+        token
+            .split('\n')
+            .enumerate()
+            .map(|(i, line)| {
+                if i == 0 {
+                    return line.to_string();
+                }
+                if !line.starts_with(|c| c == ' ' || c == '\t') {
+                    return line.to_string();
+                }
+                format!(
+                    "{} {}",
+                    self.indentation.get_indent(),
+                    line.chars()
+                        .skip_while(|&c| c == ' ' || c == '\t')
+                        .collect::<String>()
+                )
+            })
+            .join("\n")
     }
 
     fn format_reserved_word<'t>(&self, token: &'t str) -> Cow<'t, str> {
@@ -240,11 +253,11 @@ impl<'a> Formatter<'a> {
     }
 
     // Replace any sequence of whitespace characters with single space
-    fn equalize_whitespace<'t>(&self, token: &'t str) -> Cow<'t, str> {
-        lazy_static! {
-            static ref REGEX: Regex = Regex::new(r"\s+").unwrap();
-        }
-        REGEX.replace_all(token, " ")
+    fn equalize_whitespace(&self, token: &str) -> String {
+        token
+            .split(char::is_whitespace)
+            .filter(|s| !s.is_empty())
+            .join(" ")
     }
 
     fn previous_token(&self) -> Option<&Token<'_>> {

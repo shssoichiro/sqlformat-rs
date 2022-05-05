@@ -647,9 +647,12 @@ mod tests {
     #[test]
     fn it_recognizes_escaped_strings() {
         let inputs = [
-            "\"foo \\\" JOIN bar\"",
-            "'foo \\' JOIN bar'",
-            "`foo `` JOIN bar`",
+            r#""foo \" JOIN bar""#,
+            r#"'foo \' JOIN bar'"#,
+            r#"`foo `` JOIN bar`"#,
+            r#"'foo '' JOIN bar'"#,
+            r#"'two households"'"#,
+            r#"'two households'''"#,
         ];
         let options = FormatOptions::default();
         for input in &inputs {

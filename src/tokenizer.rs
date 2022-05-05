@@ -144,22 +144,22 @@ pub fn take_till_escaping<'a, Error: ParseError<&'a str>>(
 ) -> impl Fn(&'a str) -> IResult<&'a str, &'a str, Error> {
     move |input: &str| {
         let mut chars = input.chars().enumerate().peekable();
-        let mut last = None;
         loop {
             let item = chars.next();
             let next = chars.peek().map(|item| item.1);
             match item {
                 Some(item) => {
-                    if item.1 == desired
-                        && !last.map(|item| escapes.contains(&item)).unwrap_or(false)
-                        && !(escapes.contains(&item.1) && Some(desired) == next)
-                    {
+                    // escape?
+                    if escapes.contains(&item.1) && next.map(|n| n == desired).unwrap_or(false) {
+                        // consume this and next char
+                        chars.next();
+                        continue;
+                    }
+
+                    if item.1 == desired {
                         let byte_pos = input.chars().take(item.0).map(|c| c.len()).sum::<usize>();
                         return Ok((&input[byte_pos..], &input[..byte_pos]));
                     }
-
-                    last = Some(item.1);
-                    continue;
                 }
                 None => {
                     return Ok(("", input));

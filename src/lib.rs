@@ -74,8 +74,10 @@ mod tests {
     #[test]
     fn it_uses_given_indent_config_for_indentation() {
         let input = "SELECT count(*),Column1 FROM Table1;";
-        let mut options = FormatOptions::default();
-        options.indent = Indent::Spaces(4);
+        let options = FormatOptions {
+            indent: Indent::Spaces(4),
+            ..FormatOptions::default()
+        };
         let expected = indoc!(
             "
             SELECT

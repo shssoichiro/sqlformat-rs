@@ -734,8 +734,10 @@ mod tests {
     #[test]
     fn it_converts_keywords_to_uppercase_when_option_passed_in() {
         let input = "select distinct * frOM foo left join bar WHERe cola > 1 and colb = 3";
-        let mut options = FormatOptions::default();
-        options.uppercase = true;
+        let options = FormatOptions {
+            uppercase: true,
+            ..FormatOptions::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -754,8 +756,10 @@ mod tests {
     #[test]
     fn it_line_breaks_between_queries_with_config() {
         let input = "SELECT * FROM foo; SELECT * FROM bar;";
-        let mut options = FormatOptions::default();
-        options.lines_between_queries = 2;
+        let options = FormatOptions {
+            lines_between_queries: 2,
+            ..FormatOptions::default()
+        };
         let expected = indoc!(
             "
             SELECT

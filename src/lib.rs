@@ -1016,6 +1016,8 @@ mod tests {
             format(input, &QueryParams::Indexed(params), options),
             expected
         );
+
+        format("?62666666121266666612", &QueryParams::None, options);
     }
 
     #[test]

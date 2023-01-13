@@ -460,8 +460,7 @@ fn get_top_level_reserved_token(input: &str) -> IResult<&str, Token<'_>> {
     ))(&uc_input);
     if let Ok((_, token)) = result {
         let final_word = token.split(' ').last().unwrap();
-        let input_end_pos =
-            input.to_ascii_uppercase().find(&final_word).unwrap() + final_word.len();
+        let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
         let (token, input) = input.split_at(input_end_pos);
         Ok((
             input,
@@ -501,7 +500,7 @@ fn get_newline_reserved_token<'a>(
         if let Ok((_, token)) = result {
             let final_word = token.split(' ').last().unwrap();
             let input_end_pos =
-                input.to_ascii_uppercase().find(&final_word).unwrap() + final_word.len();
+                input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
             let (token, input) = input.split_at(input_end_pos);
             let kind = if token == "AND"
                 && last_reserved_token.is_some()
@@ -537,8 +536,7 @@ fn get_top_level_reserved_token_no_indent(input: &str) -> IResult<&str, Token<'_
     ))(&uc_input);
     if let Ok((_, token)) = result {
         let final_word = token.split(' ').last().unwrap();
-        let input_end_pos =
-            input.to_ascii_uppercase().find(&final_word).unwrap() + final_word.len();
+        let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
         let (token, input) = input.split_at(input_end_pos);
         Ok((
             input,

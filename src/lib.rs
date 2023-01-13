@@ -627,7 +627,8 @@ mod tests {
     #[test]
     fn it_formats_and_or_operators() {
         let strings = [
-            ("foo BETWEEN bar AND baz", "foo BETWEEN bar\nAND baz"),
+            ("foo BETWEEN bar AND baz", "foo BETWEEN bar AND baz"),
+            ("foo BETWEEN\nbar\nAND baz", "foo BETWEEN bar AND baz"),
             ("foo AND bar", "foo\nAND bar"),
             ("foo OR bar", "foo\nOR bar"),
         ];
@@ -832,7 +833,7 @@ mod tests {
     #[test]
     fn it_formats_insert_without_into() {
         let input =
-      "INSERT Customers (ID, MoneyBalance, Address, City) VALUES (12,-123.4, 'Skagen 2111','Stv');";
+            "INSERT Customers (ID, MoneyBalance, Address, City) VALUES (12,-123.4, 'Skagen 2111','Stv');";
         let options = FormatOptions::default();
         let expected = indoc!(
             "

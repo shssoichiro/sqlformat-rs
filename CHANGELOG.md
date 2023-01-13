@@ -1,8 +1,15 @@
+### Version 0.2.1
+
+- Fix extra spaces inside of scientific notation [#16](https://github.com/shssoichiro/sqlformat-rs/pull/16)
+- Remove unnecessary space in BETWEEN clause [#17](https://github.com/shssoichiro/sqlformat-rs/pull/17)
+- Denote the minimum Rust version in Cargo.toml
+
 ### Version 0.2.0
+
 - Fix extra spaces in string escaping [#13](https://github.com/shssoichiro/sqlformat-rs/pull/13)
 - Fix panic on overflowing integer [#14](https://github.com/shssoichiro/sqlformat-rs/pull/14)
 - Bump Rust edition to 2021
-  - This is technically a breaking change as it bumps the minimum Rust version to 1.56
+    - This is technically a breaking change as it bumps the minimum Rust version to 1.56
 
 ### Version 0.1.8
 

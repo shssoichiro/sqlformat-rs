@@ -1,8 +1,9 @@
 [package]
 name = "sqlformat"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Josh Holmer <jholmer.in@gmail.com>"]
 edition = "2021"
+rust-version = "1.56"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/shssoichiro/sqlformat-rs"
 repository = "https://github.com/shssoichiro/sqlformat-rs"

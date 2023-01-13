@@ -363,7 +363,11 @@ fn get_escaped_placeholder_key<'a>(key: &'a str, quote_char: &str) -> Cow<'a, st
 }
 
 fn get_number_token(input: &str) -> IResult<&str, Token<'_>> {
-    recognize(tuple((opt(tag("-")), alt((decimal_number, digit1)))))(input).map(|(input, token)| {
+    recognize(tuple((
+        opt(tag("-")),
+        alt((scientific_notation, decimal_number, digit1)),
+    )))(input)
+    .map(|(input, token)| {
         (
             input,
             Token {
@@ -377,6 +381,15 @@ fn get_number_token(input: &str) -> IResult<&str, Token<'_>> {
 
 fn decimal_number(input: &str) -> IResult<&str, &str> {
     recognize(tuple((digit1, tag("."), digit0)))(input)
+}
+
+fn scientific_notation(input: &str) -> IResult<&str, &str> {
+    recognize(tuple((
+        alt((decimal_number, digit1)),
+        tag("e"),
+        alt((tag("-"), tag("+"))),
+        digit1,
+    )))(input)
 }
 
 fn get_reserved_word_token<'a>(

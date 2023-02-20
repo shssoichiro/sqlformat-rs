@@ -10,7 +10,7 @@ use nom::{AsChar, Err, IResult};
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
 
-pub(crate) fn tokenize(mut input: &str) -> Vec<Token<'_>> {
+pub fn tokenize(mut input: &str) -> Vec<Token<'_>> {
     let mut tokens: Vec<Token> = Vec::new();
 
     // Keep processing the string until it is empty
@@ -30,7 +30,7 @@ pub(crate) fn tokenize(mut input: &str) -> Vec<Token<'_>> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Token<'a> {
+pub struct Token<'a> {
     pub kind: TokenKind,
     pub value: &'a str,
     // Only used for placeholder--there is a reason this isn't on the enum
@@ -38,7 +38,7 @@ pub(crate) struct Token<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TokenKind {
+pub enum TokenKind {
     Whitespace,
     String,
     Reserved,
@@ -56,7 +56,7 @@ pub(crate) enum TokenKind {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum PlaceholderKind<'a> {
+pub enum PlaceholderKind<'a> {
     Named(Cow<'a, str>),
     ZeroIndexed(usize),
     OneIndexed(usize),
@@ -144,7 +144,7 @@ fn get_block_comment_token(input: &str) -> IResult<&str, Token<'_>> {
     })
 }
 
-pub fn take_till_escaping<'a, Error: ParseError<&'a str>>(
+pub(crate) fn take_till_escaping<'a, Error: ParseError<&'a str>>(
     desired: char,
     escapes: &'static [char],
 ) -> impl Fn(&'a str) -> IResult<&'a str, &'a str, Error> {

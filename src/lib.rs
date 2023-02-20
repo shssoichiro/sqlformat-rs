@@ -11,7 +11,7 @@ mod formatter;
 mod indentation;
 mod inline_block;
 mod params;
-mod tokenizer;
+pub mod tokenizer;
 
 /// Formats whitespace in a SQL string to make it easier to read.
 /// Optionally replaces parameter placeholders with `params`.

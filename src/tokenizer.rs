@@ -13,15 +13,17 @@ use unicode_categories::UnicodeCategories;
 pub(crate) fn tokenize(mut input: &str) -> Vec<Token<'_>> {
     let mut tokens: Vec<Token> = Vec::new();
 
+    let mut last_reserved_token = None;
+
     // Keep processing the string until it is empty
     while let Ok(result) = get_next_token(
         input,
         tokens.last().cloned(),
-        tokens
-            .iter()
-            .rfind(|token| token.kind == TokenKind::Reserved)
-            .cloned(),
+        last_reserved_token.clone(),
     ) {
+        if result.1.kind == TokenKind::Reserved {
+            last_reserved_token = Some(result.1.clone());
+        }
         input = result.0;
 
         tokens.push(result.1);

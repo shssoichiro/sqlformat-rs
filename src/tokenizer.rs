@@ -16,11 +16,9 @@ pub(crate) fn tokenize(mut input: &str) -> Vec<Token<'_>> {
     let mut last_reserved_token = None;
 
     // Keep processing the string until it is empty
-    while let Ok(result) = get_next_token(
-        input,
-        tokens.last().cloned(),
-        last_reserved_token.clone(),
-    ) {
+    while let Ok(result) =
+        get_next_token(input, tokens.last().cloned(), last_reserved_token.clone())
+    {
         if result.1.kind == TokenKind::Reserved {
             last_reserved_token = Some(result.1.clone());
         }

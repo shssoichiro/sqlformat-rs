@@ -528,6 +528,8 @@ fn get_newline_reserved_token<'a>(
 fn get_top_level_reserved_token_no_indent(input: &str) -> IResult<&str, Token<'_>> {
     let uc_input = get_uc_words(input, 2);
     let result: IResult<&str, &str> = alt((
+        terminated(tag("BEGIN"), end_of_word),
+        terminated(tag("DECLARE"), end_of_word),
         terminated(tag("INTERSECT"), end_of_word),
         terminated(tag("INTERSECT ALL"), end_of_word),
         terminated(tag("MINUS"), end_of_word),
@@ -569,7 +571,6 @@ fn get_plain_reserved_token(input: &str) -> IResult<&str, Token<'_>> {
         terminated(tag("AUTOCOMMIT"), end_of_word),
         terminated(tag("AUTO_INCREMENT"), end_of_word),
         terminated(tag("BACKUP"), end_of_word),
-        terminated(tag("BEGIN"), end_of_word),
         terminated(tag("BETWEEN"), end_of_word),
         terminated(tag("BINLOG"), end_of_word),
         terminated(tag("BOTH"), end_of_word),

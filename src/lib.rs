@@ -1415,4 +1415,23 @@ mod tests {
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
     }
+
+    #[test]
+    fn it_keeps_double_dollar_signs_together() {
+        let input = "CREATE FUNCTION abc() AS $$ SELECT * FROM table $$ LANGUAGE plpgsql;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            CREATE FUNCTION abc() AS
+            $$
+            SELECT
+              *
+            FROM
+              table
+            $$
+            LANGUAGE plpgsql;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, options), expected);
+    }
 }

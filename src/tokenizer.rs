@@ -533,6 +533,7 @@ fn get_top_level_reserved_token_no_indent(input: &str) -> IResult<&str, Token<'_
         terminated(tag("MINUS"), end_of_word),
         terminated(tag("UNION"), end_of_word),
         terminated(tag("UNION ALL"), end_of_word),
+        terminated(tag("$$"), end_of_word),
     ))(&uc_input);
     if let Ok((_, token)) = result {
         let final_word = token.split(' ').last().unwrap();

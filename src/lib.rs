@@ -1068,6 +1068,21 @@ mod tests {
     }
 
     #[test]
+    fn it_recognizes_dollar_sign_alphanumeric_placeholders() {
+        let input = "SELECT $hash, $foo, $bar;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              $hash,
+              $foo,
+              $bar;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, options), expected);
+    }
+
+    #[test]
     fn it_recognizes_dollar_sign_numbered_placeholders_with_param_values() {
         let input = "SELECT $2, $3, $1;";
         let params = vec![
@@ -1086,6 +1101,28 @@ mod tests {
 
         assert_eq!(
             format(input, &QueryParams::Indexed(params), options),
+            expected
+        );
+    }
+
+    #[test]
+    fn it_recognizes_dollar_sign_alphanumeric_placeholders_with_param_values() {
+        let input =
+            "SELECT $hash, $salt;";
+        let params = vec![
+            ("hash".to_string(), "hash value".to_string()),
+            ("salt".to_string(), "salt value".to_string()),
+        ];
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              hash value,
+              salt value;"
+        );
+
+        assert_eq!(
+            format(input, &QueryParams::Named(params), options),
             expected
         );
     }

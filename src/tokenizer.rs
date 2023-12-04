@@ -290,9 +290,9 @@ fn get_close_paren_token(input: &str) -> IResult<&str, Token<'_>> {
 
 fn get_placeholder_token(input: &str) -> IResult<&str, Token<'_>> {
     alt((
-        get_ident_named_placeholder_token,
-        get_string_named_placeholder_token,
         get_indexed_placeholder_token,
+        get_ident_named_placeholder_token,
+        get_string_named_placeholder_token
     ))(input)
 }
 
@@ -327,7 +327,7 @@ fn get_indexed_placeholder_token(input: &str) -> IResult<&str, Token<'_>> {
 
 fn get_ident_named_placeholder_token(input: &str) -> IResult<&str, Token<'_>> {
     recognize(tuple((
-        alt((char('@'), char(':'))),
+        alt((char('@'), char(':'), char('$'))),
         take_while1(|item: char| {
             item.is_alphanumeric() || item == '.' || item == '_' || item == '$'
         }),

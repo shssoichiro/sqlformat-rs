@@ -16,9 +16,9 @@ mod tokenizer;
 /// Formats whitespace in a SQL string to make it easier to read.
 /// Optionally replaces parameter placeholders with `params`.
 pub fn format(query: &str, params: &QueryParams, options: FormatOptions) -> String {
-    let named_parameters = matches!(params, QueryParams::Named(_));
+    let named_placeholders = matches!(params, QueryParams::Named(_));
 
-    let tokens = tokenizer::tokenize(query, named_parameters);
+    let tokens = tokenizer::tokenize(query, named_placeholders);
     formatter::format(&tokens, params, options)
 }
 

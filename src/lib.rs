@@ -16,7 +16,7 @@ mod tokenizer;
 /// Formats whitespace in a SQL string to make it easier to read.
 /// Optionally replaces parameter placeholders with `params`.
 pub fn format(query: &str, params: &QueryParams, options: FormatOptions) -> String {
-    let tokens = tokenizer::tokenize(query);
+    let tokens = tokenizer::tokenize(query, params);
     formatter::format(&tokens, params, options)
 }
 
@@ -1084,11 +1084,12 @@ mod tests {
 
     #[test]
     fn it_recognizes_dollar_sign_numbered_placeholders_with_param_values() {
-        let input = "SELECT $2, $3, $1;";
+        let input = "SELECT $2, $3, $1, $named, $4, $alias;";
         let params = vec![
             "first".to_string(),
             "second".to_string(),
             "third".to_string(),
+            "4th".to_string(),
         ];
         let options = FormatOptions::default();
         let expected = indoc!(
@@ -1096,7 +1097,10 @@ mod tests {
             SELECT
               second,
               third,
-              first;"
+              first,
+              $ named,
+              4th,
+              $ alias;"
         );
 
         assert_eq!(
@@ -1108,17 +1112,21 @@ mod tests {
     #[test]
     fn it_recognizes_dollar_sign_alphanumeric_placeholders_with_param_values() {
         let input =
-            "SELECT $hash, $salt;";
+            "SELECT $hash, $salt, $1, $2;";
         let params = vec![
             ("hash".to_string(), "hash value".to_string()),
             ("salt".to_string(), "salt value".to_string()),
+            ("1".to_string(), "number 1".to_string()),
+            ("2".to_string(), "number 2".to_string()),
         ];
         let options = FormatOptions::default();
         let expected = indoc!(
             "
             SELECT
               hash value,
-              salt value;"
+              salt value,
+              number 1,
+              number 2;"
         );
 
         assert_eq!(

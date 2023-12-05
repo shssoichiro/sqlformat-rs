@@ -93,9 +93,9 @@ fn get_next_token<'a>(
         .or_else(|_| get_string_token(input))
         .or_else(|_| get_open_paren_token(input))
         .or_else(|_| get_close_paren_token(input))
-        .or_else(|_| get_placeholder_token(input, named_placeholders))
         .or_else(|_| get_number_token(input))
         .or_else(|_| get_reserved_word_token(input, previous_token, last_reserved_token))
+        .or_else(|_| get_placeholder_token(input, named_placeholders))
         .or_else(|_| get_word_token(input))
         .or_else(|_| get_operator_token(input))
 }

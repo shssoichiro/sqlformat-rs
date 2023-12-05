@@ -39,7 +39,7 @@ impl<'a> Params<'a> {
                     self.index += 1;
                     value
                 }
-            },
+            }
             QueryParams::None | _ => token.value,
         }
     }

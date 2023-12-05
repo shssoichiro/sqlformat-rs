@@ -1401,13 +1401,14 @@ mod tests {
 
     #[test]
     fn it_recognizes_scientific_notation() {
-        let input = "SELECT *, 1e-7 as small, 1e+7 as large FROM t";
+        let input = "SELECT *, 1e-7 as small, 1e2 as medium, 1e+7 as large FROM t";
         let options = FormatOptions::default();
         let expected = indoc!(
             "
             SELECT
               *,
               1e-7 as small,
+              1e2 as medium,
               1e+7 as large
             FROM
               t"

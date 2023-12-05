@@ -393,7 +393,7 @@ fn scientific_notation(input: &str) -> IResult<&str, &str> {
     recognize(tuple((
         alt((decimal_number, digit1)),
         tag("e"),
-        alt((tag("-"), tag("+"))),
+        alt((tag("-"), tag("+"), tag(""))),
         digit1,
     )))(input)
 }

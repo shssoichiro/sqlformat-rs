@@ -12,6 +12,8 @@ impl<'a> Params<'a> {
     }
 
     pub fn get(&mut self, token: &'a Token<'a>) -> &'a str {
+        let named_placeholder_token = token.key.as_ref().map_or(false, |key| key.named() != "");
+
         match self.params {
             QueryParams::Named(params) => token
                 .key
@@ -23,7 +25,7 @@ impl<'a> Params<'a> {
                         .map(|param| param.1.as_str())
                 })
                 .unwrap_or(token.value),
-            QueryParams::Indexed(params) => {
+            QueryParams::Indexed(params) if !named_placeholder_token => {
                 if let Some(key) = token.key.as_ref().and_then(|key| key.indexed()) {
                     params
                         .get(key)
@@ -38,7 +40,7 @@ impl<'a> Params<'a> {
                     value
                 }
             }
-            QueryParams::None => token.value,
+            _ => token.value,
         }
     }
 }

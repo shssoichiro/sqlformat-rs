@@ -10,15 +10,18 @@ use nom::{AsChar, Err, IResult};
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
 
-pub(crate) fn tokenize(mut input: &str) -> Vec<Token<'_>> {
+pub(crate) fn tokenize(mut input: &str, named_placeholders: bool) -> Vec<Token<'_>> {
     let mut tokens: Vec<Token> = Vec::new();
 
     let mut last_reserved_token = None;
 
     // Keep processing the string until it is empty
-    while let Ok(result) =
-        get_next_token(input, tokens.last().cloned(), last_reserved_token.clone())
-    {
+    while let Ok(result) = get_next_token(
+        input,
+        tokens.last().cloned(),
+        last_reserved_token.clone(),
+        named_placeholders,
+    ) {
         if result.1.kind == TokenKind::Reserved {
             last_reserved_token = Some(result.1.clone());
         }
@@ -83,15 +86,16 @@ fn get_next_token<'a>(
     input: &'a str,
     previous_token: Option<Token<'a>>,
     last_reserved_token: Option<Token<'a>>,
+    named_placeholders: bool,
 ) -> IResult<&'a str, Token<'a>> {
     get_whitespace_token(input)
         .or_else(|_| get_comment_token(input))
         .or_else(|_| get_string_token(input))
         .or_else(|_| get_open_paren_token(input))
         .or_else(|_| get_close_paren_token(input))
-        .or_else(|_| get_placeholder_token(input))
         .or_else(|_| get_number_token(input))
         .or_else(|_| get_reserved_word_token(input, previous_token, last_reserved_token))
+        .or_else(|_| get_placeholder_token(input, named_placeholders))
         .or_else(|_| get_word_token(input))
         .or_else(|_| get_operator_token(input))
 }
@@ -288,12 +292,23 @@ fn get_close_paren_token(input: &str) -> IResult<&str, Token<'_>> {
     })
 }
 
-fn get_placeholder_token(input: &str) -> IResult<&str, Token<'_>> {
-    alt((
-        get_ident_named_placeholder_token,
-        get_string_named_placeholder_token,
-        get_indexed_placeholder_token,
-    ))(input)
+fn get_placeholder_token(input: &str, named_placeholders: bool) -> IResult<&str, Token<'_>> {
+    // The precedence changes based on 'named_placeholders' but not the exhaustiveness.
+    // This is to ensure the formatting is the same even if parameters aren't used.
+
+    if named_placeholders {
+        alt((
+            get_ident_named_placeholder_token,
+            get_string_named_placeholder_token,
+            get_indexed_placeholder_token,
+        ))(input)
+    } else {
+        alt((
+            get_indexed_placeholder_token,
+            get_ident_named_placeholder_token,
+            get_string_named_placeholder_token,
+        ))(input)
+    }
 }
 
 fn get_indexed_placeholder_token(input: &str) -> IResult<&str, Token<'_>> {
@@ -327,7 +342,7 @@ fn get_indexed_placeholder_token(input: &str) -> IResult<&str, Token<'_>> {
 
 fn get_ident_named_placeholder_token(input: &str) -> IResult<&str, Token<'_>> {
     recognize(tuple((
-        alt((char('@'), char(':'))),
+        alt((char('@'), char(':'), char('$'))),
         take_while1(|item: char| {
             item.is_alphanumeric() || item == '.' || item == '_' || item == '$'
         }),

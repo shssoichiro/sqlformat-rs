@@ -25,7 +25,7 @@ impl<'a> Params<'a> {
                         .map(|param| param.1.as_str())
                 })
                 .unwrap_or(token.value),
-            QueryParams::Indexed(params) if named_placeholder_token == false => {
+            QueryParams::Indexed(params) if !named_placeholder_token => {
                 if let Some(key) = token.key.as_ref().and_then(|key| key.indexed()) {
                     params
                         .get(key)
@@ -40,7 +40,7 @@ impl<'a> Params<'a> {
                     value
                 }
             }
-            QueryParams::None | _ => token.value,
+            _ => token.value,
         }
     }
 }

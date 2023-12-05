@@ -1113,8 +1113,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_dollar_sign_alphanumeric_placeholders_with_param_values() {
-        let input =
-            "SELECT $hash, $salt, $1, $2;";
+        let input = "SELECT $hash, $salt, $1, $2;";
         let params = vec![
             ("hash".to_string(), "hash value".to_string()),
             ("salt".to_string(), "salt value".to_string()),

@@ -1,6 +1,6 @@
 ### Version 0.2.3
 
-- Allow alphanumeric charactersin SQLite style parameters [#32](https://github.com/shssoichiro/sqlformat-rs/pull/32)
+- Allow alphanumeric characters in SQLite style parameters [#32](https://github.com/shssoichiro/sqlformat-rs/pull/32)
 - Format "begin" and "declare" for PLPgSql [#30](https://github.com/shssoichiro/sqlformat-rs/pull/30)
 - Allow scientific notation with or without "+"/"-" [#31](https://github.com/shssoichiro/sqlformat-rs/pull/31)
 - Treat "$$" as a reserved token that sits on its own line [#29](https://github.com/shssoichiro/sqlformat-rs/pull/29)

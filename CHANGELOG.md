@@ -1,3 +1,11 @@
+### Version 0.2.3
+
+- Allow alphanumeric charactersin SQLite style parameters [#32](https://github.com/shssoichiro/sqlformat-rs/pull/32)
+- Format "begin" and "declare" for PLPgSql [#30](https://github.com/shssoichiro/sqlformat-rs/pull/30)
+- Allow scientific notation with or without "+"/"-" [#31](https://github.com/shssoichiro/sqlformat-rs/pull/31)
+- Treat "$$" as a reserved token that sits on its own line [#29](https://github.com/shssoichiro/sqlformat-rs/pull/29)
+- Bump itertools to version 0.12 [#28](https://github.com/shssoichiro/sqlformat-rs/pull/28)
+
 ### Version 0.2.2
 
 - Fix a performance issue where the tokenizer would run in O^2 time [#24](https://github.com/shssoichiro/sqlformat-rs/pull/24)

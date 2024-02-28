@@ -1,10 +1,10 @@
+use std::borrow::Cow;
+
 use crate::indentation::Indentation;
 use crate::inline_block::InlineBlock;
 use crate::params::Params;
 use crate::tokenizer::{Token, TokenKind};
 use crate::{FormatOptions, QueryParams};
-use itertools::Itertools;
-use std::borrow::Cow;
 
 pub(crate) fn format(tokens: &[Token<'_>], params: &QueryParams, options: FormatOptions) -> String {
     let mut formatter = Formatter::new(tokens, params, options);
@@ -223,25 +223,25 @@ impl<'a> Formatter<'a> {
     }
 
     fn indent_comment(&self, token: &str) -> String {
-        token
-            .split('\n')
-            .enumerate()
-            .map(|(i, line)| {
-                if i == 0 {
-                    return line.to_string();
-                }
-                if !line.starts_with(|c| c == ' ' || c == '\t') {
-                    return line.to_string();
-                }
-                format!(
-                    "{} {}",
-                    self.indentation.get_indent(),
-                    line.chars()
-                        .skip_while(|&c| c == ' ' || c == '\t')
-                        .collect::<String>()
-                )
-            })
-            .join("\n")
+        let mut combined = String::with_capacity(token.len() + 4);
+        for (i, line) in token.split('\n').enumerate() {
+            if i == 0 {
+                combined.push_str(line)
+            } else if line.starts_with([' ', '\t']) {
+                let indent = self.indentation.get_indent();
+                let start_trimmed = line.trim_start_matches([' ', '\t']);
+                combined.reserve(indent.len() + start_trimmed.len() + 2);
+                combined.push('\n');
+                combined.push_str(&indent);
+                combined.push(' ');
+                combined.push_str(start_trimmed);
+            } else {
+                combined.reserve(line.len() + 1);
+                combined.push('\n');
+                combined.push_str(line);
+            }
+        }
+        combined
     }
 
     fn format_reserved_word<'t>(&self, token: &'t str) -> Cow<'t, str> {
@@ -252,12 +252,16 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    // Replace any sequence of whitespace characters with single space
+    /// Replace any sequence of whitespace characters with single space
     fn equalize_whitespace(&self, token: &str) -> String {
-        token
-            .split(char::is_whitespace)
-            .filter(|s| !s.is_empty())
-            .join(" ")
+        let mut combined = String::with_capacity(token.len());
+        for s in token.split(char::is_whitespace).filter(|s| !s.is_empty()) {
+            if !combined.is_empty() {
+                combined.push(' ');
+            }
+            combined.push_str(s);
+        }
+        combined
     }
 
     fn previous_token(&self) -> Option<&Token<'_>> {

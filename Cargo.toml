@@ -13,7 +13,6 @@ keywords = ["sql"]
 categories = ["development-tools"]
 
 [dependencies]
-itertools = "0.12"
 nom = "7.0.0"
 unicode_categories = "0.1.1"
 

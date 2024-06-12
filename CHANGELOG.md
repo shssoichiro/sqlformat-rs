@@ -1,3 +1,7 @@
+### Version 0.2.4
+
+- Remove `itertools` dependency [#34](https://github.com/shssoichiro/sqlformat-rs/pull/34)
+
 ### Version 0.2.3
 
 - Allow alphanumeric characters in SQLite style parameters [#32](https://github.com/shssoichiro/sqlformat-rs/pull/32)
@@ -8,7 +12,8 @@
 
 ### Version 0.2.2
 
-- Fix a performance issue where the tokenizer would run in O^2 time [#24](https://github.com/shssoichiro/sqlformat-rs/pull/24)
+- Fix a performance issue where the tokenizer would run in O^2
+  time [#24](https://github.com/shssoichiro/sqlformat-rs/pull/24)
 
 ### Version 0.2.1
 
@@ -21,7 +26,7 @@
 - Fix extra spaces in string escaping [#13](https://github.com/shssoichiro/sqlformat-rs/pull/13)
 - Fix panic on overflowing integer [#14](https://github.com/shssoichiro/sqlformat-rs/pull/14)
 - Bump Rust edition to 2021
-  - This is technically a breaking change as it bumps the minimum Rust version to 1.56
+    - This is technically a breaking change as it bumps the minimum Rust version to 1.56
 
 ### Version 0.1.8
 

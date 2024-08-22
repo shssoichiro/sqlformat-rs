@@ -75,6 +75,35 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_line_comment(&self, token: &Token<'_>, query: &mut String) {
+        let is_whitespace_followed_by_special_token =
+            self.next_token(1).map_or(false, |current_token| {
+                current_token.kind == TokenKind::Whitespace
+                    && self.next_token(2).map_or(false, |next_token| {
+                        matches!(
+                            next_token.kind,
+                            TokenKind::Number
+                                | TokenKind::String
+                                | TokenKind::Word
+                                | TokenKind::ReservedTopLevel
+                                | TokenKind::ReservedTopLevelNoIndent
+                                | TokenKind::ReservedNewline
+                                | TokenKind::Reserved
+                        )
+                    })
+            });
+
+        let previous_token = self.previous_token(1);
+        if previous_token.is_some()
+            && previous_token.unwrap().value.contains("\n")
+            && is_whitespace_followed_by_special_token
+        {
+            self.add_new_line(query);
+        } else if let Some(Token { value, .. }) = self.previous_token(2) {
+            if *value == "," {
+                self.trim_all_spaces_end(query);
+                query.push_str("  ");
+            }
+        }
         query.push_str(token.value);
         self.add_new_line(query);
     }
@@ -126,7 +155,7 @@ impl<'a> Formatter<'a> {
 
         // Take out the preceding space unless there was whitespace there in the original query
         // or another opening parens or line comment
-        let previous_token = self.previous_token();
+        let previous_token = self.previous_token(1);
         if previous_token.is_none()
             || !PRESERVE_WHITESPACE_FOR.contains(&previous_token.unwrap().kind)
         {
@@ -222,6 +251,10 @@ impl<'a> Formatter<'a> {
         query.truncate(query.trim_end_matches(|c| c == ' ' || c == '\t').len());
     }
 
+    fn trim_all_spaces_end(&self, query: &mut String) {
+        query.truncate(query.trim_end_matches(|c: char| c.is_whitespace()).len());
+    }
+
     fn indent_comment(&self, token: &str) -> String {
         let mut combined = String::with_capacity(token.len() + 4);
         for (i, line) in token.split('\n').enumerate() {
@@ -264,8 +297,17 @@ impl<'a> Formatter<'a> {
         combined
     }
 
-    fn previous_token(&self) -> Option<&Token<'_>> {
-        let index = self.index.checked_sub(1);
+    fn previous_token(&self, idx: usize) -> Option<&Token<'_>> {
+        let index = self.index.checked_sub(idx);
+        if let Some(index) = index {
+            self.tokens.get(index)
+        } else {
+            None
+        }
+    }
+
+    fn next_token(&self, idx: usize) -> Option<&Token<'_>> {
+        let index = self.index.checked_add(idx);
         if let Some(index) = index {
             self.tokens.get(index)
         } else {

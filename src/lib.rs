@@ -1591,4 +1591,29 @@ mod tests {
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
     }
+
+    #[test]
+    fn it_recognizes_returning_clause() {
+        let input = indoc!(
+            "
+          INSERT INTO
+            users (name, email)
+          VALUES
+            ($1, $2) RETURNING name,
+            email"
+        );
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+          INSERT INTO
+            users (name, email)
+          VALUES
+            ($1, $2)
+          RETURNING
+            name,
+            email"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, options), expected);
+    }
 }

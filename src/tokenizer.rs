@@ -471,6 +471,7 @@ fn get_top_level_reserved_token(input: &str) -> IResult<&str, Token<'_>> {
             terminated(tag("UPDATE"), end_of_word),
             terminated(tag("VALUES"), end_of_word),
             terminated(tag("WHERE"), end_of_word),
+            terminated(tag("RETURNING"), end_of_word),
         )),
     ))(&uc_input);
     if let Ok((_, token)) = result {

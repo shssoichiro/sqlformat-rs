@@ -212,6 +212,11 @@ fn get_string_token(input: &str) -> IResult<&str, Token<'_>> {
             take_till_escaping('\'', &['\'', '\\']),
             take(1usize),
         ))),
+        recognize(tuple((
+            tag("E'"),
+            take_till_escaping('\'', &['\'', '\\']),
+            take(1usize),
+        ))),
     ))(input)
     .map(|(input, token)| {
         (

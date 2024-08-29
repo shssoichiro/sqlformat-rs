@@ -658,6 +658,7 @@ mod tests {
             r#"'foo '' JOIN bar'"#,
             r#"'two households"'"#,
             r#"'two households'''"#,
+            r#"E'alice'''"#,
         ];
         let options = FormatOptions::default();
         for input in &inputs {

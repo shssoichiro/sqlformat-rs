@@ -574,8 +574,10 @@ fn get_top_level_reserved_token_no_indent(input: &str) -> IResult<&str, Token<'_
         Err(Err::Error(Error::new(input, ErrorKind::Alt)))
     }
 }
-
 fn get_plain_reserved_token(input: &str) -> IResult<&str, Token<'_>> {
+    alt((get_plain_reserved_two_token, get_plain_reserved_one_token))(input)
+}
+fn get_plain_reserved_one_token(input: &str) -> IResult<&str, Token<'_>> {
     let uc_input = get_uc_words(input, 1);
     let result: IResult<&str, &str> = alt((
         terminated(tag("ACCESSIBLE"), end_of_word),
@@ -600,7 +602,6 @@ fn get_plain_reserved_token(input: &str) -> IResult<&str, Token<'_>> {
         alt((
             terminated(tag("CHANGE"), end_of_word),
             terminated(tag("CHANGED"), end_of_word),
-            terminated(tag("CHARACTER SET"), end_of_word),
             terminated(tag("CHARSET"), end_of_word),
             terminated(tag("CHECK"), end_of_word),
             terminated(tag("CHECKSUM"), end_of_word),
@@ -741,8 +742,6 @@ fn get_plain_reserved_token(input: &str) -> IResult<&str, Token<'_>> {
                                     terminated(tag("NOW()"), end_of_word),
                                     terminated(tag("NULL"), end_of_word),
                                     terminated(tag("OFFSET"), end_of_word),
-                                    terminated(tag("ON DELETE"), end_of_word),
-                                    terminated(tag("ON UPDATE"), end_of_word),
                                     alt((
                                         terminated(tag("ON"), end_of_word),
                                         terminated(tag("ONLY"), end_of_word),
@@ -917,6 +916,29 @@ fn get_plain_reserved_token(input: &str) -> IResult<&str, Token<'_>> {
                 )),
             )),
         )),
+    ))(&uc_input);
+    if let Ok((_, token)) = result {
+        let input_end_pos = token.len();
+        let (token, input) = input.split_at(input_end_pos);
+        Ok((
+            input,
+            Token {
+                kind: TokenKind::Reserved,
+                value: token,
+                key: None,
+            },
+        ))
+    } else {
+        Err(Err::Error(Error::new(input, ErrorKind::Alt)))
+    }
+}
+
+fn get_plain_reserved_two_token(input: &str) -> IResult<&str, Token<'_>> {
+    let uc_input = get_uc_words(input, 2);
+    let result: IResult<&str, &str> = alt((
+        terminated(tag("CHARACTER SET"), end_of_word),
+        terminated(tag("ON DELETE"), end_of_word),
+        terminated(tag("ON UPDATE"), end_of_word),
     ))(&uc_input);
     if let Ok((_, token)) = result {
         let input_end_pos = token.len();

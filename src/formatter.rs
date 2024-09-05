@@ -94,7 +94,7 @@ impl<'a> Formatter<'a> {
 
         let previous_token = self.previous_token(1);
         if previous_token.is_some()
-            && previous_token.unwrap().value.contains("\n")
+            && previous_token.unwrap().value.contains('\n')
             && is_whitespace_followed_by_special_token
         {
             self.add_new_line(query);
@@ -137,11 +137,11 @@ impl<'a> Formatter<'a> {
 
     fn format_with_spaces(&self, token: &Token<'_>, query: &mut String) {
         let value = if token.kind == TokenKind::Reserved {
-            self.format_reserved_word(token.value)
+            &self.equalize_whitespace(&self.format_reserved_word(token.value))
         } else {
-            Cow::Borrowed(token.value)
+            token.value
         };
-        query.push_str(&value);
+        query.push_str(value);
         query.push(' ');
     }
 

@@ -136,13 +136,14 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_with_spaces(&self, token: &Token<'_>, query: &mut String) {
-        let value = if token.kind == TokenKind::Reserved {
-            &self.equalize_whitespace(&self.format_reserved_word(token.value))
+        if token.kind == TokenKind::Reserved {
+            let value = self.equalize_whitespace(&self.format_reserved_word(token.value));
+            query.push_str(&value);
+            query.push(' ');
         } else {
-            token.value
+            query.push_str(token.value);
+            query.push(' ');
         };
-        query.push_str(value);
-        query.push(' ');
     }
 
     // Opening parentheses increase the block indent level and start a new line
@@ -248,7 +249,7 @@ impl<'a> Formatter<'a> {
     }
 
     fn trim_spaces_end(&self, query: &mut String) {
-        query.truncate(query.trim_end_matches(|c| c == ' ' || c == '\t').len());
+        query.truncate(query.trim_end_matches([' ', '\t']).len());
     }
 
     fn trim_all_spaces_end(&self, query: &mut String) {

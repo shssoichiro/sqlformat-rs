@@ -137,11 +137,11 @@ impl<'a> Formatter<'a> {
 
     fn format_with_spaces(&self, token: &Token<'_>, query: &mut String) {
         let value = if token.kind == TokenKind::Reserved {
-            &self.equalize_whitespace(&self.format_reserved_word(token.value))
+            self.equalize_whitespace(&self.format_reserved_word(token.value))
         } else {
-            token.value
+            token.value.to_string()
         };
-        query.push_str(value);
+        query.push_str(&value);
         query.push(' ');
     }
 

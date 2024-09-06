@@ -1621,7 +1621,7 @@ mod tests {
     #[test]
     fn it_recognizes_on_update_clause() {
         let input = indoc!(
-            "CREATE TABLE a (b integer REFERENCES c (id) ON UPDATE RESTRICT, other integer);"
+            "CREATE TABLE a (b integer REFERENCES c (id) ON                                     UPDATE RESTRICT, other integer);"
         );
         let options = FormatOptions::default();
         let expected = indoc!(

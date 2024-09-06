@@ -944,7 +944,6 @@ fn get_plain_reserved_two_token(input: &str) -> IResult<&str, Token<'_>> {
         let final_word = token.split(' ').last().unwrap();
         let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
         let (token, input) = input.split_at(input_end_pos);
-        println!("token={:?}", token);
         Ok((
             input,
             Token {

@@ -77,7 +77,6 @@ fn issue_633(c: &mut Criterion) {
     const SIZE: usize = 1000;
 
     pub struct UserData {
-        pub id: i64,
         pub first_name: String,
         pub last_name: String,
         pub address: String,
@@ -87,7 +86,6 @@ fn issue_633(c: &mut Criterion) {
 
     fn sample() -> UserData {
         UserData {
-            id: -1,
             first_name: "FIRST_NAME".to_string(),
             last_name: "LAST_NAME".to_string(),
             address: "SOME_ADDRESS".to_string(),

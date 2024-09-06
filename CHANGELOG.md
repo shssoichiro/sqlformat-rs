@@ -1,4 +1,4 @@
-### Version 0.2.5
+### Version 0.2.6
 
 - fix: ON UPDATE with two many blank formatted incorrectly (#46)
 - fix: `EXCEPT` not handled well

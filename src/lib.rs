@@ -55,17 +55,12 @@ pub enum Indent {
     Tabs,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum QueryParams {
     Named(Vec<(String, String)>),
     Indexed(Vec<String>),
+    #[default]
     None,
-}
-
-impl Default for QueryParams {
-    fn default() -> Self {
-        QueryParams::None
-    }
 }
 
 #[cfg(test)]

@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::borrow::Cow;
 
 use crate::indentation::Indentation;
@@ -6,11 +7,41 @@ use crate::params::Params;
 use crate::tokenizer::{Token, TokenKind};
 use crate::{FormatOptions, QueryParams};
 
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref RE: Regex = Regex::new(r"(?i)^(--|/\*)\s*fmt\s*:\s*(off|on)").unwrap();
+}
+
+pub(crate) fn check_fmt_off(s: &str) -> Option<bool> {
+    RE.captures(s)?
+        .get(2)
+        .map(|matched| matched.as_str().eq_ignore_ascii_case("off"))
+}
+
 pub(crate) fn format(tokens: &[Token<'_>], params: &QueryParams, options: FormatOptions) -> String {
     let mut formatter = Formatter::new(tokens, params, options);
     let mut formatted_query = String::new();
+    let mut is_fmt_enabled = true;
+    let mut is_prev_token_fmt_switch = false;
     for (index, token) in tokens.iter().enumerate() {
+        if is_prev_token_fmt_switch {
+            is_prev_token_fmt_switch = false;
+            continue;
+        }
+        if matches!(token.kind, TokenKind::LineComment | TokenKind::BlockComment) {
+            if let Some(is_fmt_off) = check_fmt_off(token.value) {
+                is_fmt_enabled = !is_fmt_off;
+                is_prev_token_fmt_switch = true;
+                continue;
+            }
+        }
         formatter.index = index;
+
+        if !is_fmt_enabled {
+            formatter.format_no_change(token, &mut formatted_query);
+            continue;
+        }
 
         if token.kind == TokenKind::Whitespace {
             // ignore (we do our own whitespace formatting)
@@ -79,16 +110,7 @@ impl<'a> Formatter<'a> {
             self.next_token(1).map_or(false, |current_token| {
                 current_token.kind == TokenKind::Whitespace
                     && self.next_token(2).map_or(false, |next_token| {
-                        matches!(
-                            next_token.kind,
-                            TokenKind::Number
-                                | TokenKind::String
-                                | TokenKind::Word
-                                | TokenKind::ReservedTopLevel
-                                | TokenKind::ReservedTopLevelNoIndent
-                                | TokenKind::ReservedNewline
-                                | TokenKind::Reserved
-                        )
+                        !matches!(next_token.kind, TokenKind::Operator)
                     })
             });
 
@@ -313,5 +335,9 @@ impl<'a> Formatter<'a> {
         } else {
             None
         }
+    }
+
+    fn format_no_change(&self, token: &Token<'_>, query: &mut String) {
+        query.push_str(token.value);
     }
 }

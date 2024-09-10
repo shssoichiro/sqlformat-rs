@@ -7,11 +7,11 @@ use crate::params::Params;
 use crate::tokenizer::{Token, TokenKind};
 use crate::{FormatOptions, QueryParams};
 
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 
-lazy_static! {
-    static ref RE: Regex = Regex::new(r"(?i)^(--|/\*)\s*fmt\s*:\s*(off|on)").unwrap();
-}
+static RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?i)^(--|/\*)\s*fmt\s*:\s*(off|on)").unwrap()
+});
 
 pub(crate) fn check_fmt_off(s: &str) -> Option<bool> {
     RE.captures(s)?

@@ -9,9 +9,7 @@ use crate::{FormatOptions, QueryParams};
 
 use once_cell::sync::Lazy;
 
-static RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)^(--|/\*)\s*fmt\s*:\s*(off|on)").unwrap()
-});
+static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^(--|/\*)\s*fmt\s*:\s*(off|on)").unwrap());
 
 pub(crate) fn check_fmt_off(s: &str) -> Option<bool> {
     RE.captures(s)?

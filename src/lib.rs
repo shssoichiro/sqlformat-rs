@@ -1653,4 +1653,43 @@ mod tests {
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
     }
+
+    #[test]
+    fn it_recognizes_fmt_off() {
+        let input = indoc!(
+            "SELECT              *     FROM   sometable        
+            WHERE
+            -- comment test here
+                 -- fmt: off
+                first_key.second_key = 1
+                                -- json:first_key.second_key = 1
+                      -- fmt: on
+                AND 
+                   -- fm1t: off
+                first_key.second_key = 1
+                                    --  json:first_key.second_key = 1
+                -- fmt:on"
+        );
+        let options = FormatOptions {
+            indent: Indent::Spaces(4),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+                *
+            FROM
+                sometable
+            WHERE
+                -- comment test here
+                first_key.second_key = 1
+                                -- json:first_key.second_key = 1
+                AND
+                -- fm1t: off
+                first_key.second_key = 1
+                --  json:first_key.second_key = 1"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, options), expected);
+    }
 }

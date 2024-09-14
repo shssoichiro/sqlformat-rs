@@ -182,11 +182,12 @@ impl<'a> Formatter<'a> {
         {
             self.trim_spaces_end(query);
         }
-        if self.options.uppercase {
-            query.push_str(&token.value.to_uppercase());
-        } else {
-            query.push_str(token.value);
+        let value = match self.options.uppercase {
+            Some(true) => token.value.to_uppercase(),
+            Some(false) => token.value.to_lowercase(),
+            _ => token.value.to_string(),
         };
+        query.push_str(&value);
 
         self.inline_block.begin_if_possible(self.tokens, self.index);
 
@@ -199,10 +200,10 @@ impl<'a> Formatter<'a> {
     // Closing parentheses decrease the block indent level
     fn format_closing_parentheses(&mut self, token: &Token<'_>, query: &mut String) {
         let mut token = token.clone();
-        let value = if self.options.uppercase {
-            token.value.to_uppercase()
-        } else {
-            token.value.to_string()
+        let value = match self.options.uppercase {
+            Some(true) => token.value.to_uppercase(),
+            Some(false) => token.value.to_lowercase(),
+            _ => token.value.to_string(),
         };
         token.value = &value;
 
@@ -299,10 +300,10 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_reserved_word<'t>(&self, token: &'t str) -> Cow<'t, str> {
-        if self.options.uppercase {
-            Cow::Owned(token.to_uppercase())
-        } else {
-            Cow::Borrowed(token)
+        match self.options.uppercase {
+            Some(true) => Cow::Owned(token.to_uppercase()),
+            Some(false) => Cow::Owned(token.to_lowercase()),
+            _ => Cow::Borrowed(token),
         }
     }
 

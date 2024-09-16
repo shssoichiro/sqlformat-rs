@@ -32,7 +32,7 @@ pub struct FormatOptions {
     /// When set, changes reserved keywords to ALL CAPS
     ///
     /// Default: false
-    uppercase: Option<bool>,
+    pub uppercase: Option<bool>,
     /// Controls the number of line breaks after a query
     ///
     /// Default: 1

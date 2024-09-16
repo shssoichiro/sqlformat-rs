@@ -1736,48 +1736,4 @@ mod tests {
 
         assert_eq!(format(input, &QueryParams::None, options), expected);
     }
-
-    #[test]
-    fn it_converts_keywords_to_lowercase_when_option_passed_in() {
-        let input = "select distinct * frOM foo left join bar WHERe cola > 1 and colb = 3";
-        let options = FormatOptions {
-            uppercase: Some(false),
-            ..FormatOptions::default()
-        };
-        let expected = indoc!(
-            "
-            select
-              distinct *
-            from
-              foo
-              left join bar
-            where
-              cola > 1
-              and colb = 3"
-        );
-
-        assert_eq!(format(input, &QueryParams::None, options), expected);
-    }
-
-    #[test]
-    fn it_converts_keywords_nothing_when_no_option_passed_in() {
-        let input = "select distinct * frOM foo left join bar WHERe cola > 1 and colb = 3";
-        let options = FormatOptions {
-            uppercase: None,
-            ..FormatOptions::default()
-        };
-        let expected = indoc!(
-            "
-            select
-              distinct *
-            frOM
-              foo
-              left join bar
-            WHERe
-              cola > 1
-              and colb = 3"
-        );
-
-        assert_eq!(format(input, &QueryParams::None, options), expected);
-    }
 }

@@ -55,17 +55,12 @@ pub enum Indent {
     Tabs,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum QueryParams {
     Named(Vec<(String, String)>),
     Indexed(Vec<String>),
+    #[default]
     None,
-}
-
-impl Default for QueryParams {
-    fn default() -> Self {
-        QueryParams::None
-    }
 }
 
 #[cfg(test)]
@@ -1621,7 +1616,7 @@ mod tests {
     #[test]
     fn it_recognizes_on_update_clause() {
         let input = indoc!(
-            "CREATE TABLE a (b integer REFERENCES c (id) ON UPDATE RESTRICT, other integer);"
+            "CREATE TABLE a (b integer REFERENCES c (id) ON                                     UPDATE RESTRICT, other integer);"
         );
         let options = FormatOptions::default();
         let expected = indoc!(
@@ -1654,6 +1649,89 @@ mod tests {
                 table_0.profit
             FROM
                 table_0"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, options), expected);
+    }
+
+    #[test]
+    fn it_recognizes_fmt_off() {
+        let input = indoc!(
+            "SELECT              *     FROM   sometable        
+            WHERE
+            -- comment test here
+                 -- fmt: off
+                first_key.second_key = 1
+                                -- json:first_key.second_key = 1
+                      -- fmt: on
+                AND 
+                   -- fm1t: off
+                first_key.second_key = 1
+                                    --  json:first_key.second_key = 1
+                -- fmt:on"
+        );
+        let options = FormatOptions {
+            indent: Indent::Spaces(4),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+                *
+            FROM
+                sometable
+            WHERE
+                -- comment test here
+                first_key.second_key = 1
+                                -- json:first_key.second_key = 1
+                AND
+                -- fm1t: off
+                first_key.second_key = 1
+                --  json:first_key.second_key = 1"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, options), expected);
+    }
+
+    #[test]
+    fn it_converts_keywords_to_lowercase_when_option_passed_in() {
+        let input = "select distinct * frOM foo left join bar WHERe cola > 1 and colb = 3";
+        let options = FormatOptions {
+            uppercase: Some(false),
+            ..FormatOptions::default()
+        };
+        let expected = indoc!(
+            "
+            select
+              distinct *
+            from
+              foo
+              left join bar
+            where
+              cola > 1
+              and colb = 3"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, options), expected);
+    }
+
+    #[test]
+    fn it_converts_keywords_nothing_when_no_option_passed_in() {
+        let input = "select distinct * frOM foo left join bar WHERe cola > 1 and colb = 3";
+        let options = FormatOptions {
+            uppercase: None,
+            ..FormatOptions::default()
+        };
+        let expected = indoc!(
+            "
+            select
+              distinct *
+            frOM
+              foo
+              left join bar
+            WHERe
+              cola > 1
+              and colb = 3"
         );
 
         assert_eq!(format(input, &QueryParams::None, options), expected);

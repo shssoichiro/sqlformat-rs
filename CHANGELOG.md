@@ -1,3 +1,12 @@
+### Version 0.2.6
+
+- fix: ON UPDATE with two many blank formatted incorrectly (#46)
+- fix: `EXCEPT` not handled well
+- fix: REFERENCES xyz ON UPDATE .. causes formatter to treat the remaining as an UPDATE statement
+- fix: Escaped strings formatted incorrectly
+- fix: RETURNING is not placed on a new line
+- fix: fix the issue of misaligned comments after formatting (#40)
+
 ### Version 0.2.4
 
 - Remove `itertools` dependency [#34](https://github.com/shssoichiro/sqlformat-rs/pull/34)
@@ -26,7 +35,7 @@
 - Fix extra spaces in string escaping [#13](https://github.com/shssoichiro/sqlformat-rs/pull/13)
 - Fix panic on overflowing integer [#14](https://github.com/shssoichiro/sqlformat-rs/pull/14)
 - Bump Rust edition to 2021
-    - This is technically a breaking change as it bumps the minimum Rust version to 1.56
+  - This is technically a breaking change as it bumps the minimum Rust version to 1.56
 
 ### Version 0.1.8
 

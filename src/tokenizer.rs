@@ -968,7 +968,8 @@ fn get_plain_reserved_two_token(input: &str) -> IResult<&str, Token<'_>> {
         terminated(tag("ON UPDATE"), end_of_word),
     ))(&uc_input);
     if let Ok((_, token)) = result {
-        let input_end_pos = token.len();
+        let final_word = token.split(' ').last().unwrap();
+        let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
         let (token, input) = input.split_at(input_end_pos);
         Ok((
             input,

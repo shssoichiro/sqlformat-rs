@@ -188,11 +188,11 @@ impl<'a> Formatter<'a> {
         }
         if self.options.uppercase
             && !self
-                    .options
-                    .ignore_case_convert
-                    .as_ref()
-                    .map(|values| values.contains(&token.value))
-                    .unwrap_or(false)
+                .options
+                .ignore_case_convert
+                .as_ref()
+                .map(|values| values.contains(&token.value))
+                .unwrap_or(false)
         {
             query.push_str(&token.value.to_uppercase());
         } else {

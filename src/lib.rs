@@ -32,7 +32,7 @@ pub struct FormatOptions<'a> {
     /// When set, changes reserved keywords to ALL CAPS
     ///
     /// Default: false
-    pub uppercase: bool,
+    pub uppercase: Option<bool>,
     /// Controls the number of line breaks after a query
     ///
     /// Default: 1
@@ -47,7 +47,7 @@ impl<'a> Default for FormatOptions<'a> {
     fn default() -> Self {
         FormatOptions {
             indent: Indent::Spaces(2),
-            uppercase: false,
+            uppercase: None,
             lines_between_queries: 1,
             ignore_case_convert: None,
         }
@@ -741,7 +741,7 @@ mod tests {
     fn it_converts_keywords_to_uppercase_when_option_passed_in() {
         let input = "select distinct * frOM foo left join bar WHERe cola > 1 and colb = 3";
         let options = FormatOptions {
-            uppercase: true,
+            uppercase: Some(true),
             ..FormatOptions::default()
         };
         let expected = indoc!(
@@ -1663,7 +1663,7 @@ mod tests {
     fn it_uses_given_ignore_case_convert_config() {
         let input = "select count(*),Column1 from Table1;";
         let options = FormatOptions {
-            uppercase: true,
+            uppercase: Some(true),
             ignore_case_convert: Some(vec!["from"]),
             ..FormatOptions::default()
         };
@@ -1713,6 +1713,50 @@ mod tests {
                 -- fm1t: off
                 first_key.second_key = 1
                 --  json:first_key.second_key = 1"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_converts_keywords_to_lowercase_when_option_passed_in() {
+        let input = "select distinct * frOM foo left join bar WHERe cola > 1 and colb = 3";
+        let options = FormatOptions {
+            uppercase: Some(false),
+            ..FormatOptions::default()
+        };
+        let expected = indoc!(
+            "
+            select
+              distinct *
+            from
+              foo
+              left join bar
+            where
+              cola > 1
+              and colb = 3"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_converts_keywords_nothing_when_no_option_passed_in() {
+        let input = "select distinct * frOM foo left join bar WHERe cola > 1 and colb = 3";
+        let options = FormatOptions {
+            uppercase: None,
+            ..FormatOptions::default()
+        };
+        let expected = indoc!(
+            "
+            select
+              distinct *
+            frOM
+              foo
+              left join bar
+            WHERe
+              cola > 1
+              and colb = 3"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

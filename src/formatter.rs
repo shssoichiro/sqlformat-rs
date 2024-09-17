@@ -187,13 +187,12 @@ impl<'a> Formatter<'a> {
             self.trim_spaces_end(query);
         }
         if self.options.uppercase
-            && (self.options.ignore_case_convert.is_none()
-                || !self
+            && !self
                     .options
                     .ignore_case_convert
                     .as_ref()
-                    .unwrap()
-                    .contains(&token.value))
+                    .map(|values| values.contains(&token.value))
+                    .unwrap_or(false)
         {
             query.push_str(&token.value.to_uppercase());
         } else {

@@ -211,13 +211,12 @@ impl<'a> Formatter<'a> {
     fn format_closing_parentheses(&mut self, token: &Token<'_>, query: &mut String) {
         let mut token = token.clone();
         let value = if self.options.uppercase
-            && (self.options.ignore_case_convert.is_none()
-                || !self
-                    .options
-                    .ignore_case_convert
-                    .as_ref()
-                    .unwrap()
-                    .contains(&token.value))
+            && !self
+                .options
+                .ignore_case_convert
+                .as_ref()
+                .map(|values| values.contains(&token.value))
+                .unwrap_or(false)
         {
             token.value.to_uppercase()
         } else {
@@ -319,13 +318,12 @@ impl<'a> Formatter<'a> {
 
     fn format_reserved_word<'t>(&self, token: &'t str) -> Cow<'t, str> {
         if self.options.uppercase
-            && (self.options.ignore_case_convert.is_none()
-                || !self
-                    .options
-                    .ignore_case_convert
-                    .as_ref()
-                    .unwrap()
-                    .contains(&token))
+            && !self
+                .options
+                .ignore_case_convert
+                .as_ref()
+                .map(|values| values.contains(&token))
+                .unwrap_or(false)
         {
             Cow::Owned(token.to_uppercase())
         } else {

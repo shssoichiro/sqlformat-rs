@@ -17,7 +17,11 @@ pub(crate) fn check_fmt_off(s: &str) -> Option<bool> {
         .map(|matched| matched.as_str().eq_ignore_ascii_case("off"))
 }
 
-pub(crate) fn format(tokens: &[Token<'_>], params: &QueryParams, options: FormatOptions) -> String {
+pub(crate) fn format(
+    tokens: &[Token<'_>],
+    params: &QueryParams,
+    options: &FormatOptions,
+) -> String {
     let mut formatter = Formatter::new(tokens, params, options);
     let mut formatted_query = String::new();
     let mut is_fmt_enabled = true;
@@ -85,13 +89,13 @@ struct Formatter<'a> {
     previous_reserved_word: Option<&'a Token<'a>>,
     tokens: &'a [Token<'a>],
     params: Params<'a>,
-    options: FormatOptions,
-    indentation: Indentation,
+    options: &'a FormatOptions<'a>,
+    indentation: Indentation<'a>,
     inline_block: InlineBlock,
 }
 
 impl<'a> Formatter<'a> {
-    fn new(tokens: &'a [Token<'a>], params: &'a QueryParams, options: FormatOptions) -> Self {
+    fn new(tokens: &'a [Token<'a>], params: &'a QueryParams, options: &'a FormatOptions) -> Self {
         Formatter {
             index: 0,
             previous_reserved_word: None,
@@ -182,7 +186,14 @@ impl<'a> Formatter<'a> {
         {
             self.trim_spaces_end(query);
         }
-        if self.options.uppercase {
+        if self.options.uppercase
+            && !self
+                .options
+                .ignore_case_convert
+                .as_ref()
+                .map(|values| values.contains(&token.value))
+                .unwrap_or(false)
+        {
             query.push_str(&token.value.to_uppercase());
         } else {
             query.push_str(token.value);
@@ -199,7 +210,14 @@ impl<'a> Formatter<'a> {
     // Closing parentheses decrease the block indent level
     fn format_closing_parentheses(&mut self, token: &Token<'_>, query: &mut String) {
         let mut token = token.clone();
-        let value = if self.options.uppercase {
+        let value = if self.options.uppercase
+            && !self
+                .options
+                .ignore_case_convert
+                .as_ref()
+                .map(|values| values.contains(&token.value))
+                .unwrap_or(false)
+        {
             token.value.to_uppercase()
         } else {
             token.value.to_string()
@@ -299,7 +317,14 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_reserved_word<'t>(&self, token: &'t str) -> Cow<'t, str> {
-        if self.options.uppercase {
+        if self.options.uppercase
+            && !self
+                .options
+                .ignore_case_convert
+                .as_ref()
+                .map(|values| values.contains(&token))
+                .unwrap_or(false)
+        {
             Cow::Owned(token.to_uppercase())
         } else {
             Cow::Borrowed(token)

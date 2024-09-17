@@ -8,7 +8,7 @@ fn simple_query(c: &mut Criterion) {
             format(
                 black_box(input),
                 black_box(&QueryParams::None),
-                black_box(FormatOptions::default()),
+                black_box(&FormatOptions::default()),
             )
         })
     });
@@ -21,7 +21,7 @@ fn complex_query(c: &mut Criterion) {
             format(
                 black_box(input),
                 black_box(&QueryParams::None),
-                black_box(FormatOptions::default()),
+                black_box(&FormatOptions::default()),
             )
         })
     });
@@ -39,7 +39,7 @@ fn query_with_named_params(c: &mut Criterion) {
             format(
                 black_box(input),
                 black_box(&QueryParams::Named(params.clone())),
-                black_box(FormatOptions::default()),
+                black_box(&FormatOptions::default()),
             )
         })
     });
@@ -53,7 +53,7 @@ fn query_with_explicit_indexed_params(c: &mut Criterion) {
             format(
                 black_box(input),
                 black_box(&QueryParams::Indexed(params.clone())),
-                black_box(FormatOptions::default()),
+                black_box(&FormatOptions::default()),
             )
         })
     });
@@ -67,7 +67,7 @@ fn query_with_implicit_indexed_params(c: &mut Criterion) {
             format(
                 black_box(input),
                 black_box(&QueryParams::Indexed(params.clone())),
-                black_box(FormatOptions::default()),
+                black_box(&FormatOptions::default()),
             )
         })
     });
@@ -135,7 +135,7 @@ VALUES
             format(
                 black_box(&input),
                 black_box(&QueryParams::None),
-                black_box(FormatOptions::default()),
+                black_box(&FormatOptions::default()),
             )
         })
     });
@@ -149,7 +149,7 @@ fn issue_633_2(c: &mut Criterion) {
             format(
                 black_box(input),
                 black_box(&QueryParams::Indexed(params.clone())),
-                black_box(FormatOptions::default()),
+                black_box(&FormatOptions::default()),
             )
         })
     });
@@ -175,7 +175,7 @@ fn issue_633_3(c: &mut Criterion) {
             format(
                 black_box(&input),
                 black_box(&QueryParams::None),
-                black_box(FormatOptions::default()),
+                black_box(&FormatOptions::default()),
             )
         })
     });

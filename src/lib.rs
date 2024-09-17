@@ -15,7 +15,7 @@ mod tokenizer;
 
 /// Formats whitespace in a SQL string to make it easier to read.
 /// Optionally replaces parameter placeholders with `params`.
-pub fn format(query: &str, params: &QueryParams, options: FormatOptions) -> String {
+pub fn format(query: &str, params: &QueryParams, options: &FormatOptions) -> String {
     let named_placeholders = matches!(params, QueryParams::Named(_));
 
     let tokens = tokenizer::tokenize(query, named_placeholders);
@@ -23,8 +23,8 @@ pub fn format(query: &str, params: &QueryParams, options: FormatOptions) -> Stri
 }
 
 /// Options for controlling how the library formats SQL
-#[derive(Debug, Clone, Copy)]
-pub struct FormatOptions {
+#[derive(Debug, Clone)]
+pub struct FormatOptions<'a> {
     /// Controls the type and length of indentation to use
     ///
     /// Default: 2 spaces
@@ -37,14 +37,19 @@ pub struct FormatOptions {
     ///
     /// Default: 1
     pub lines_between_queries: u8,
+    /// Ignore case conversion for specified strings in the array.
+    ///
+    /// Default: None
+    pub ignore_case_convert: Option<Vec<&'a str>>,
 }
 
-impl Default for FormatOptions {
+impl<'a> Default for FormatOptions<'a> {
     fn default() -> Self {
         FormatOptions {
             indent: Indent::Spaces(2),
             uppercase: false,
             lines_between_queries: 1,
+            ignore_case_convert: None,
         }
     }
 }
@@ -84,7 +89,7 @@ mod tests {
                 Table1;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -99,7 +104,7 @@ mod tests {
               schema2;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -115,7 +120,7 @@ mod tests {
               Table1;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -134,7 +139,7 @@ mod tests {
               foo;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -162,7 +167,7 @@ mod tests {
               );"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -192,7 +197,7 @@ mod tests {
               5;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -205,7 +210,7 @@ mod tests {
               5, 10;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -221,7 +226,7 @@ mod tests {
               bar;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -234,7 +239,7 @@ mod tests {
               5 OFFSET 8;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -247,7 +252,7 @@ mod tests {
               5, 10;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -266,7 +271,7 @@ mod tests {
               and b = 3"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -291,7 +296,7 @@ mod tests {
               a > b"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -312,7 +317,7 @@ mod tests {
               INNER JOIN orders ON customers.customer_id = orders.customer_id;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -343,7 +348,7 @@ mod tests {
               1 = 2;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -362,7 +367,7 @@ mod tests {
         );
         let options = FormatOptions::default();
 
-        assert_eq!(format(input, &QueryParams::None, options), input);
+        assert_eq!(format(input, &QueryParams::None, &options), input);
     }
 
     #[test]
@@ -377,7 +382,7 @@ mod tests {
               (12, -123.4, 'Skagen 2111', 'Stv');"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -390,7 +395,7 @@ mod tests {
               (a + b * (c - NOW()));"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -428,7 +433,7 @@ mod tests {
               );"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -446,7 +451,7 @@ mod tests {
               CustomerName = 'Alfreds Futterkiste';"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -462,7 +467,7 @@ mod tests {
               AND Phone = 5002132;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -470,7 +475,7 @@ mod tests {
         let input = "DROP TABLE IF EXISTS admin_role;";
         let options = FormatOptions::default();
 
-        assert_eq!(format(input, &QueryParams::None, options), input);
+        assert_eq!(format(input, &QueryParams::None, &options), input);
     }
 
     #[test]
@@ -483,7 +488,7 @@ mod tests {
               count("
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -501,7 +506,7 @@ mod tests {
               /*Comment"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -523,7 +528,7 @@ mod tests {
               ) AS order_summary"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -541,7 +546,7 @@ mod tests {
               blah"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -557,7 +562,7 @@ mod tests {
             )"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -565,7 +570,7 @@ mod tests {
         let input = "((foo = 'bar'))";
         let options = FormatOptions::default();
 
-        assert_eq!(format(input, &QueryParams::None, options), input);
+        assert_eq!(format(input, &QueryParams::None, &options), input);
     }
 
     #[test]
@@ -582,7 +587,7 @@ mod tests {
         ];
         let options = FormatOptions::default();
         for input in &inputs {
-            assert_eq!(&format(input, &QueryParams::None, options), input);
+            assert_eq!(&format(input, &QueryParams::None, &options), input);
         }
     }
 
@@ -600,7 +605,7 @@ mod tests {
         ];
         let options = FormatOptions::default();
         for input in &inputs {
-            assert_eq!(&format(input, &QueryParams::None, options), input);
+            assert_eq!(&format(input, &QueryParams::None, &options), input);
         }
     }
 
@@ -617,7 +622,7 @@ mod tests {
         ];
         let options = FormatOptions::default();
         for input in &inputs {
-            assert_eq!(&format(input, &QueryParams::None, options), input);
+            assert_eq!(&format(input, &QueryParams::None, &options), input);
         }
     }
 
@@ -631,7 +636,7 @@ mod tests {
         ];
         let options = FormatOptions::default();
         for (input, output) in &strings {
-            assert_eq!(&format(input, &QueryParams::None, options), output);
+            assert_eq!(&format(input, &QueryParams::None, &options), output);
         }
     }
 
@@ -640,7 +645,7 @@ mod tests {
         let inputs = ["\"foo JOIN bar\"", "'foo JOIN bar'", "`foo JOIN bar`"];
         let options = FormatOptions::default();
         for input in &inputs {
-            assert_eq!(&format(input, &QueryParams::None, options), input);
+            assert_eq!(&format(input, &QueryParams::None, &options), input);
         }
     }
 
@@ -657,7 +662,7 @@ mod tests {
         ];
         let options = FormatOptions::default();
         for input in &inputs {
-            assert_eq!(&format(input, &QueryParams::None, options), input);
+            assert_eq!(&format(input, &QueryParams::None, &options), input);
         }
     }
 
@@ -677,7 +682,7 @@ mod tests {
         ];
         let options = FormatOptions::default();
         for (input, output) in &strings {
-            assert_eq!(&format(input, &QueryParams::None, options), output);
+            assert_eq!(&format(input, &QueryParams::None, &options), output);
         }
     }
 
@@ -690,7 +695,7 @@ mod tests {
         ];
         let options = FormatOptions::default();
         for (input, output) in &strings {
-            assert_eq!(&format(input, &QueryParams::None, options), output);
+            assert_eq!(&format(input, &QueryParams::None, &options), output);
         }
 
         let input = indoc!(
@@ -713,7 +718,7 @@ mod tests {
               Table2;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -729,7 +734,7 @@ mod tests {
               table;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -751,7 +756,7 @@ mod tests {
               AND colb = 3"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -774,7 +779,7 @@ mod tests {
               bar;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -799,7 +804,7 @@ mod tests {
             );"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -807,7 +812,7 @@ mod tests {
         let input = "CREATE TABLE items (a INT PRIMARY KEY, b TEXT);";
         let options = FormatOptions::default();
 
-        assert_eq!(format(input, &QueryParams::None, options), input);
+        assert_eq!(format(input, &QueryParams::None, &options), input);
     }
 
     #[test]
@@ -825,7 +830,7 @@ mod tests {
             );"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -841,7 +846,7 @@ mod tests {
               (12, -123.4, 'Skagen 2111', 'Stv');"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -856,7 +861,7 @@ mod tests {
               supplier_name char(100) NOT NULL;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -871,7 +876,7 @@ mod tests {
               supplier_name VARCHAR(100) NOT NULL;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -879,7 +884,7 @@ mod tests {
         let inputs = ["[foo JOIN bar]", "[foo ]] JOIN bar]"];
         let options = FormatOptions::default();
         for input in &inputs {
-            assert_eq!(&format(input, &QueryParams::None, options), input);
+            assert_eq!(&format(input, &QueryParams::None, &options), input);
         }
     }
 
@@ -899,7 +904,7 @@ mod tests {
               @[var name];"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -926,7 +931,7 @@ mod tests {
         );
 
         assert_eq!(
-            format(input, &QueryParams::Named(params), options),
+            format(input, &QueryParams::Named(params), &options),
             expected
         );
     }
@@ -947,7 +952,7 @@ mod tests {
               :[var name];"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -983,7 +988,7 @@ mod tests {
         );
 
         assert_eq!(
-            format(input, &QueryParams::Named(params), options),
+            format(input, &QueryParams::Named(params), &options),
             expected
         );
     }
@@ -1000,7 +1005,7 @@ mod tests {
               ?;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1021,11 +1026,11 @@ mod tests {
         );
 
         assert_eq!(
-            format(input, &QueryParams::Indexed(params), options),
+            format(input, &QueryParams::Indexed(params), &options),
             expected
         );
 
-        format("?62666666121266666612", &QueryParams::None, options);
+        format("?62666666121266666612", &QueryParams::None, &options);
     }
 
     #[test]
@@ -1046,7 +1051,7 @@ mod tests {
         );
 
         assert_eq!(
-            format(input, &QueryParams::Indexed(params), options),
+            format(input, &QueryParams::Indexed(params), &options),
             expected
         );
     }
@@ -1062,7 +1067,7 @@ mod tests {
               $2;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1077,7 +1082,7 @@ mod tests {
               $bar;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1102,7 +1107,7 @@ mod tests {
         );
 
         assert_eq!(
-            format(input, &QueryParams::Indexed(params), options),
+            format(input, &QueryParams::Indexed(params), &options),
             expected
         );
     }
@@ -1127,7 +1132,7 @@ mod tests {
         );
 
         assert_eq!(
-            format(input, &QueryParams::Named(params), options),
+            format(input, &QueryParams::Named(params), &options),
             expected
         );
     }
@@ -1151,7 +1156,7 @@ mod tests {
         );
 
         assert_eq!(
-            format(input, &QueryParams::Indexed(params), options),
+            format(input, &QueryParams::Indexed(params), &options),
             expected
         );
     }
@@ -1170,7 +1175,7 @@ mod tests {
               CROSS JOIN t2 on t.id = t2.id_t"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1187,7 +1192,7 @@ mod tests {
               CROSS APPLY fn(t.id)"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1203,7 +1208,7 @@ mod tests {
               t"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1216,7 +1221,7 @@ mod tests {
               N'value'"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1233,7 +1238,7 @@ mod tests {
               OUTER APPLY fn(t.id)"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1248,7 +1253,7 @@ mod tests {
               2 ROWS ONLY;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1265,7 +1270,7 @@ mod tests {
             END;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1288,7 +1293,7 @@ mod tests {
               table"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1306,7 +1311,7 @@ mod tests {
             END;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1321,7 +1326,7 @@ mod tests {
             end;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1337,7 +1342,7 @@ mod tests {
               table1;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1352,7 +1357,7 @@ mod tests {
               b --comment"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1373,7 +1378,7 @@ mod tests {
             ;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1392,7 +1397,7 @@ mod tests {
               b"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1407,7 +1412,7 @@ mod tests {
               )"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1421,7 +1426,7 @@ mod tests {
               ()"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1429,7 +1434,7 @@ mod tests {
         let input = ";";
         let options = FormatOptions::default();
 
-        assert_eq!(format(input, &QueryParams::None, options), input);
+        assert_eq!(format(input, &QueryParams::None, &options), input);
     }
 
     #[test]
@@ -1438,7 +1443,7 @@ mod tests {
         let options = FormatOptions::default();
         let expected = "SELECT\n  'главная'";
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1456,7 +1461,7 @@ mod tests {
               t"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1475,7 +1480,7 @@ mod tests {
             LANGUAGE plpgsql;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1498,7 +1503,7 @@ mod tests {
             LANGUAGE plpgsql;"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1585,7 +1590,7 @@ mod tests {
                 PARTITION (sale_year = '2024', sale_month = '08') LOCATION '/user/hive/warehouse/sales_data/2024/08';"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1610,7 +1615,7 @@ mod tests {
             email"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1626,7 +1631,7 @@ mod tests {
             other integer
           );"
         );
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1651,7 +1656,27 @@ mod tests {
                 table_0"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_uses_given_ignore_case_convert_config() {
+        let input = "select count(*),Column1 from Table1;";
+        let options = FormatOptions {
+            uppercase: true,
+            ignore_case_convert: Some(vec!["from"]),
+            ..FormatOptions::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              count(*),
+              Column1
+            from
+              Table1;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1690,6 +1715,6 @@ mod tests {
                 --  json:first_key.second_key = 1"
         );
 
-        assert_eq!(format(input, &QueryParams::None, options), expected);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 }

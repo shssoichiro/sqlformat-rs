@@ -17,7 +17,11 @@ pub(crate) fn check_fmt_off(s: &str) -> Option<bool> {
         .map(|matched| matched.as_str().eq_ignore_ascii_case("off"))
 }
 
-pub(crate) fn format(tokens: &[Token<'_>], params: &QueryParams, options: FormatOptions) -> String {
+pub(crate) fn format(
+    tokens: &[Token<'_>],
+    params: &QueryParams,
+    options: &FormatOptions,
+) -> String {
     let mut formatter = Formatter::new(tokens, params, options);
     let mut formatted_query = String::new();
     let mut is_fmt_enabled = true;
@@ -85,13 +89,13 @@ struct Formatter<'a> {
     previous_reserved_word: Option<&'a Token<'a>>,
     tokens: &'a [Token<'a>],
     params: Params<'a>,
-    options: FormatOptions,
-    indentation: Indentation,
+    options: &'a FormatOptions<'a>,
+    indentation: Indentation<'a>,
     inline_block: InlineBlock,
 }
 
 impl<'a> Formatter<'a> {
-    fn new(tokens: &'a [Token<'a>], params: &'a QueryParams, options: FormatOptions) -> Self {
+    fn new(tokens: &'a [Token<'a>], params: &'a QueryParams, options: &'a FormatOptions) -> Self {
         Formatter {
             index: 0,
             previous_reserved_word: None,
@@ -182,11 +186,28 @@ impl<'a> Formatter<'a> {
         {
             self.trim_spaces_end(query);
         }
-        let value = match self.options.uppercase {
-            Some(true) => token.value.to_uppercase(),
-            Some(false) => token.value.to_lowercase(),
-            _ => token.value.to_string(),
+
+        let value = match (
+            self.options.uppercase,
+            self.options.ignore_case_convert.as_ref(),
+        ) {
+            (Some(uppercase), Some(values)) if !values.contains(&token.value) => {
+                if uppercase {
+                    Cow::Owned(token.value.to_uppercase())
+                } else {
+                    Cow::Owned(token.value.to_lowercase())
+                }
+            }
+            (Some(uppercase), None) => {
+                if uppercase {
+                    Cow::Owned(token.value.to_uppercase())
+                } else {
+                    Cow::Owned(token.value.to_lowercase())
+                }
+            }
+            _ => Cow::Borrowed(token.value),
         };
+
         query.push_str(&value);
 
         self.inline_block.begin_if_possible(self.tokens, self.index);
@@ -200,11 +221,27 @@ impl<'a> Formatter<'a> {
     // Closing parentheses decrease the block indent level
     fn format_closing_parentheses(&mut self, token: &Token<'_>, query: &mut String) {
         let mut token = token.clone();
-        let value = match self.options.uppercase {
-            Some(true) => token.value.to_uppercase(),
-            Some(false) => token.value.to_lowercase(),
-            _ => token.value.to_string(),
+        let value = match (
+            self.options.uppercase,
+            self.options.ignore_case_convert.as_ref(),
+        ) {
+            (Some(uppercase), Some(values)) if !values.contains(&token.value) => {
+                if uppercase {
+                    Cow::Owned(token.value.to_uppercase())
+                } else {
+                    Cow::Owned(token.value.to_lowercase())
+                }
+            }
+            (Some(uppercase), None) => {
+                if uppercase {
+                    Cow::Owned(token.value.to_uppercase())
+                } else {
+                    Cow::Owned(token.value.to_lowercase())
+                }
+            }
+            _ => Cow::Borrowed(token.value),
         };
+
         token.value = &value;
 
         if self.inline_block.is_active() {
@@ -300,9 +337,24 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_reserved_word<'t>(&self, token: &'t str) -> Cow<'t, str> {
-        match self.options.uppercase {
-            Some(true) => Cow::Owned(token.to_uppercase()),
-            Some(false) => Cow::Owned(token.to_lowercase()),
+        match (
+            self.options.uppercase,
+            self.options.ignore_case_convert.as_ref(),
+        ) {
+            (Some(uppercase), Some(values)) if !values.contains(&token) => {
+                if uppercase {
+                    Cow::Owned(token.to_uppercase())
+                } else {
+                    Cow::Owned(token.to_lowercase())
+                }
+            }
+            (Some(uppercase), None) => {
+                if uppercase {
+                    Cow::Owned(token.to_uppercase())
+                } else {
+                    Cow::Owned(token.to_lowercase())
+                }
+            }
             _ => Cow::Borrowed(token),
         }
     }

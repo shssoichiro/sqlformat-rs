@@ -1,7 +1,7 @@
 use crate::{FormatOptions, Indent};
 
-pub(crate) struct Indentation {
-    options: FormatOptions,
+pub(crate) struct Indentation<'a> {
+    options: &'a FormatOptions<'a>,
     indent_types: Vec<IndentType>,
 }
 
@@ -11,8 +11,8 @@ enum IndentType {
     BlockLevel,
 }
 
-impl Indentation {
-    pub fn new(options: FormatOptions) -> Self {
+impl<'a> Indentation<'a> {
+    pub fn new(options: &'a FormatOptions) -> Self {
         Indentation {
             options,
             indent_types: Vec::new(),

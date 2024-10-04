@@ -1,3 +1,9 @@
+### Version 0.2.7
+
+- fix: uppercase=false does not lowercase the query (#50)
+- fix: Ignore keywords for uppercase=True (#53)
+- fix: Possible to provide an escape hatch for expressions (#51)
+
 ### Version 0.2.6
 
 - fix: ON UPDATE with two many blank formatted incorrectly (#46)

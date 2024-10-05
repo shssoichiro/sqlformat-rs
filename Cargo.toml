@@ -1,6 +1,6 @@
 [package]
 name = "sqlformat"
-version = "0.2.7"
+version = "0.3.0"
 authors = ["Josh Holmer <jholmer.in@gmail.com>"]
 edition = "2021"
 rust-version = "1.62"

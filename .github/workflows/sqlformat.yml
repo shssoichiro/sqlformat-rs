@@ -20,7 +20,7 @@ jobs:
           - latest-nightly
         include:
           - conf: minimum
-            toolchain: 1.62.0
+            toolchain: 1.65.0
           - conf: latest-stable
             toolchain: stable
           - conf: latest-beta
@@ -55,13 +55,13 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: -- -D warnings
-      # FIXME: criterion and its dependencies require a newer version than 1.62, but it is only used for benchmarks.
+      # FIXME: criterion and its dependencies require a newer version than 1.65, but it is only used for benchmarks.
       # Is there a way to not have criterion built when we run tests?
       - name: Run cargo check
-        if: matrix.toolchain == '1.62.0'
+        if: matrix.toolchain == '1.65.0'
         run: cargo check
       - name: Run tests
-        if: matrix.toolchain != '1.62.0'
+        if: matrix.toolchain != '1.65.0'
         run: cargo test
       - name: Build benchmarks
         if: matrix.toolchain == 'stable'

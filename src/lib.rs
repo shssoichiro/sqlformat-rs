@@ -1761,4 +1761,85 @@ mod tests {
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
+    #[test]
+    fn it_correctly_parses_all_operators() {
+        let operators = [
+            "!!", "!~~*", "!~~", "!~*", "!~", "##", "#>>", "#>", "#-", "&<|", "&<", "&>", "&&",
+            "*<>", "*<=", "*>=", "*>", "*=", "*<", "<<|", "<<=", "<<", "<->", "<@", "<^", "<=",
+            "<>", "<", ">=", ">>=", ">>", ">^", "->>", "->", "-|-", "-", "+", "/", "=", "%", "?||",
+            "?|", "?-|", "?-", "?#", "?&", "?", "@@@", "@@", "@>", "@?", "@-@", "@", "^@", "^",
+            "|&>", "|>>", "|/", "|", "||/", "||", "~>=~", "~>~", "~<=~", "~<~", "~=", "~*", "~~*",
+            "~~", "~",
+        ];
+
+        // Test each operator individually
+        for &operator in &operators {
+            let input = format!("left {} right", operator);
+            let expected = format!("left {} right", operator);
+            let options = FormatOptions {
+                uppercase: None,
+                ..FormatOptions::default()
+            };
+
+            assert_eq!(
+                format(&input, &QueryParams::None, &options),
+                expected,
+                "Failed to parse operator: {}",
+                operator
+            );
+        }
+    }
+    #[test]
+    fn it_correctly_splits_operators() {
+        let input = "
+  SELECT
+  left <@ right,
+  left << right,
+  left >> right,
+  left &< right,
+  left &> right,
+  left -|- right,
+  @@ left,
+  @-@ left,
+  left <-> right,
+  left <<| right,
+  left |>> right,
+  left &<| right,
+  left |>& right,
+  left <^ right,
+  left >^ right,
+  ?- left,
+  left ?-| right,
+  left ?|| right,
+  left ~= right";
+        let options = FormatOptions {
+            uppercase: None,
+            ..FormatOptions::default()
+        };
+        let expected = indoc!(
+            "
+SELECT
+  left <@ right,
+  left << right,
+  left >> right,
+  left &< right,
+  left &> right,
+  left -|- right,
+  @@ left,
+  @-@ left,
+  left <-> right,
+  left <<| right,
+  left |>> right,
+  left &<| right,
+  left |>& right,
+  left <^ right,
+  left >^ right,
+  ?- left,
+  left ?-| right,
+  left ?|| right,
+  left ~= right"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
 }

@@ -1,10 +1,10 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take, take_until, take_while1};
 use nom::character::complete::{anychar, char, digit0, digit1, not_line_ending};
-use nom::combinator::{eof, opt, peek, recognize, verify};
+use nom::combinator::{eof, map, opt, peek, recognize, verify};
 use nom::error::ParseError;
 use nom::error::{Error, ErrorKind};
-use nom::multi::many0;
+use nom::multi::{many0, many_m_n};
 use nom::sequence::{terminated, tuple};
 use nom::{AsChar, Err, IResult};
 use std::borrow::Cow;
@@ -107,9 +107,10 @@ fn get_next_token<'a>(
                 last_reserved_top_level_token,
             )
         })
+        .or_else(|_| get_operator_token(input))
         .or_else(|_| get_placeholder_token(input, named_placeholders))
         .or_else(|_| get_word_token(input))
-        .or_else(|_| get_operator_token(input))
+        .or_else(|_| get_any_other_char(input))
 }
 
 fn get_whitespace_token(input: &str) -> IResult<&str, Token<'_>> {
@@ -998,30 +999,39 @@ fn get_word_token(input: &str) -> IResult<&str, Token<'_>> {
 }
 
 fn get_operator_token(input: &str) -> IResult<&str, Token<'_>> {
-    alt((
-        tag("!="),
-        tag("<>"),
-        tag("=="),
-        tag("<="),
-        tag(">="),
-        tag("!<"),
-        tag("!>"),
-        tag("||"),
-        tag("::"),
-        tag("->>"),
-        tag("->"),
-        tag("~~*"),
-        tag("~~"),
-        tag("!~~*"),
-        tag("!~~"),
-        tag("~*"),
-        tag("!~*"),
-        tag("!~"),
-        tag(":="),
-        recognize(verify(take(1usize), |token: &str| {
-            token != "\n" && token != "\r"
-        })),
-    ))(input)
+    // Define the allowed operator characters
+    let allowed_operators = alt((
+        tag("!"),
+        tag("<"),
+        tag(">"),
+        tag("="),
+        tag("|"),
+        tag(":"),
+        tag("-"),
+        tag("~"),
+        tag("*"),
+        tag("&"),
+        tag("@"),
+        tag("^"),
+        tag("?"),
+        tag("#"),
+        tag("/"),
+    ));
+
+    map(
+        recognize(many_m_n(2, 5, allowed_operators)),
+        |token: &str| Token {
+            kind: TokenKind::Operator,
+            value: token,
+            key: None,
+        },
+    )(input)
+}
+fn get_any_other_char(input: &str) -> IResult<&str, Token<'_>> {
+    alt((recognize(verify(
+        nom::character::complete::anychar,
+        |&token: &char| token != '\n' && token != '\r',
+    )),))(input)
     .map(|(input, token)| {
         (
             input,

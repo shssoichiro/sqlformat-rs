@@ -1682,14 +1682,14 @@ mod tests {
     #[test]
     fn it_recognizes_fmt_off() {
         let input = indoc!(
-            "SELECT              *     FROM   sometable        
+            "SELECT              *     FROM   sometable
             WHERE
             -- comment test here
                  -- fmt: off
                 first_key.second_key = 1
                                 -- json:first_key.second_key = 1
                       -- fmt: on
-                AND 
+                AND
                    -- fm1t: off
                 first_key.second_key = 1
                                     --  json:first_key.second_key = 1
@@ -1757,6 +1757,87 @@ mod tests {
             WHERe
               cola > 1
               and colb = 3"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+    #[test]
+    fn it_correctly_parses_all_operators() {
+        let operators = [
+            "!!", "!~~*", "!~~", "!~*", "!~", "##", "#>>", "#>", "#-", "&<|", "&<", "&>", "&&",
+            "*<>", "*<=", "*>=", "*>", "*=", "*<", "<<|", "<<=", "<<", "<->", "<@", "<^", "<=",
+            "<>", "<", ">=", ">>=", ">>", ">^", "->>", "->", "-|-", "-", "+", "/", "=", "%", "?||",
+            "?|", "?-|", "?-", "?#", "?&", "?", "@@@", "@@", "@>", "@?", "@-@", "@", "^@", "^",
+            "|&>", "|>>", "|/", "|", "||/", "||", "~>=~", "~>~", "~<=~", "~<~", "~=", "~*", "~~*",
+            "~~", "~",
+        ];
+
+        // Test each operator individually
+        for &operator in &operators {
+            let input = format!("left {} right", operator);
+            let expected = format!("left {} right", operator);
+            let options = FormatOptions {
+                uppercase: None,
+                ..FormatOptions::default()
+            };
+
+            assert_eq!(
+                format(&input, &QueryParams::None, &options),
+                expected,
+                "Failed to parse operator: {}",
+                operator
+            );
+        }
+    }
+    #[test]
+    fn it_correctly_splits_operators() {
+        let input = "
+  SELECT
+  left <@ right,
+  left << right,
+  left >> right,
+  left &< right,
+  left &> right,
+  left -|- right,
+  @@ left,
+  @-@ left,
+  left <-> right,
+  left <<| right,
+  left |>> right,
+  left &<| right,
+  left |>& right,
+  left <^ right,
+  left >^ right,
+  ?- left,
+  left ?-| right,
+  left ?|| right,
+  left ~= right";
+        let options = FormatOptions {
+            uppercase: None,
+            ..FormatOptions::default()
+        };
+        let expected = indoc!(
+            "
+SELECT
+  left <@ right,
+  left << right,
+  left >> right,
+  left &< right,
+  left &> right,
+  left -|- right,
+  @@ left,
+  @-@ left,
+  left <-> right,
+  left <<| right,
+  left |>> right,
+  left &<| right,
+  left |>& right,
+  left <^ right,
+  left >^ right,
+  ?- left,
+  left ?-| right,
+  left ?|| right,
+  left ~= right"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

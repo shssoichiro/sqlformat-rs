@@ -562,66 +562,6 @@ fn get_top_level_reserved_token<'a>(
         }
     }
 }
-//fn get_top_level_reserved_token<'a>(
-//    last_reserved_top_level_token: Option<Token<'a>>,
-//) -> impl FnMut(&'a str) -> IResult<&'a str, Token<'a>> {
-//    move |input: &'a str| {
-//        let uc_input: String = get_uc_words(input, 3);
-//        let result: IResult<&str, &str> = alt((
-//            terminated(tag("ADD"), end_of_word),
-//            terminated(tag("AFTER"), end_of_word),
-//            terminated(tag("ALTER COLUMN"), end_of_word),
-//            terminated(tag("ALTER TABLE"), end_of_word),
-//            terminated(tag("DELETE FROM"), end_of_word),
-//            terminated(tag("EXCEPT"), end_of_word),
-//            terminated(tag("FETCH FIRST"), end_of_word),
-//            terminated(tag("FROM"), end_of_word),
-//            terminated(tag("GROUP BY"), end_of_word),
-//            terminated(tag("GO"), end_of_word),
-//            terminated(tag("HAVING"), end_of_word),
-//            terminated(tag("INSERT INTO"), end_of_word),
-//            terminated(tag("INSERT"), end_of_word),
-//            terminated(tag("LIMIT"), end_of_word),
-//            terminated(tag("MODIFY"), end_of_word),
-//            terminated(tag("ORDER BY"), end_of_word),
-//            terminated(tag("SELECT"), end_of_word),
-//            terminated(tag("SET CURRENT SCHEMA"), end_of_word),
-//            terminated(tag("SET SCHEMA"), end_of_word),
-//            terminated(tag("SET"), end_of_word),
-//            alt((
-//                terminated(tag("UPDATE"), end_of_word),
-//                terminated(tag("VALUES"), end_of_word),
-//                terminated(tag("WHERE"), end_of_word),
-//                terminated(tag("RETURNING"), end_of_word),
-//            )),
-//        ))(&uc_input);
-//        if let Ok((_, token)) = result {
-//            let final_word = token.split(' ').last().unwrap();
-//            let input_end_pos =
-//                input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
-//            let (token, input) = input.split_at(input_end_pos);
-//            let kind = if token == "EXCEPT"
-//                && last_reserved_top_level_token.is_some()
-//                && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT"
-//            {
-//                // If the query statement before and after the except keyword is not complete, mark it a `Word`
-//                TokenKind::Word
-//            } else {
-//                TokenKind::ReservedTopLevel
-//            };
-//            Ok((
-//                input,
-//                Token {
-//                    kind,
-//                    value: token,
-//                    key: None,
-//                },
-//            ))
-//        } else {
-//            Err(Err::Error(Error::new(input, ErrorKind::Alt)))
-//        }
-//    }
-//}
 
 fn get_newline_reserved_token<'a>(
     last_reserved_token: Option<Token<'a>>,

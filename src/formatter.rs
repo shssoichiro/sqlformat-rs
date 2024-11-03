@@ -45,40 +45,58 @@ pub(crate) fn format(
             continue;
         }
 
-        if token.kind == TokenKind::Whitespace {
-            // ignore (we do our own whitespace formatting)
-        } else if token.kind == TokenKind::LineComment {
-            formatter.format_line_comment(token, &mut formatted_query);
-        } else if token.kind == TokenKind::BlockComment {
-            formatter.format_block_comment(token, &mut formatted_query);
-        } else if token.kind == TokenKind::ReservedTopLevel {
-            formatter.format_top_level_reserved_word(token, &mut formatted_query);
-            formatter.previous_reserved_word = Some(token);
-        } else if token.kind == TokenKind::ReservedTopLevelNoIndent {
-            formatter.format_top_level_reserved_word_no_indent(token, &mut formatted_query);
-            formatter.previous_reserved_word = Some(token);
-        } else if token.kind == TokenKind::ReservedNewline {
-            formatter.format_newline_reserved_word(token, &mut formatted_query);
-            formatter.previous_reserved_word = Some(token);
-        } else if token.kind == TokenKind::Reserved {
-            formatter.format_with_spaces(token, &mut formatted_query);
-            formatter.previous_reserved_word = Some(token);
-        } else if token.kind == TokenKind::OpenParen {
-            formatter.format_opening_parentheses(token, &mut formatted_query);
-        } else if token.kind == TokenKind::CloseParen {
-            formatter.format_closing_parentheses(token, &mut formatted_query);
-        } else if token.kind == TokenKind::Placeholder {
-            formatter.format_placeholder(token, &mut formatted_query);
-        } else if token.value == "," {
-            formatter.format_comma(token, &mut formatted_query);
-        } else if token.value == ":" {
-            formatter.format_with_space_after(token, &mut formatted_query);
-        } else if token.value == "." {
-            formatter.format_without_spaces(token, &mut formatted_query);
-        } else if token.value == ";" {
-            formatter.format_query_separator(token, &mut formatted_query);
-        } else {
-            formatter.format_with_spaces(token, &mut formatted_query);
+        match token.kind {
+            TokenKind::Whitespace => {
+                // ignore (we do our own whitespace formatting)
+            }
+            TokenKind::LineComment => {
+                formatter.format_line_comment(token, &mut formatted_query);
+            }
+            TokenKind::BlockComment => {
+                formatter.format_block_comment(token, &mut formatted_query);
+            }
+            TokenKind::ReservedTopLevel => {
+                formatter.format_top_level_reserved_word(token, &mut formatted_query);
+                formatter.previous_reserved_word = Some(token);
+            }
+            TokenKind::ReservedTopLevelNoIndent => {
+                formatter.format_top_level_reserved_word_no_indent(token, &mut formatted_query);
+                formatter.previous_reserved_word = Some(token);
+            }
+            TokenKind::ReservedNewline => {
+                formatter.format_newline_reserved_word(token, &mut formatted_query);
+                formatter.previous_reserved_word = Some(token);
+            }
+            TokenKind::Reserved => {
+                formatter.format_with_spaces(token, &mut formatted_query);
+                formatter.previous_reserved_word = Some(token);
+            }
+            TokenKind::OpenParen => {
+                formatter.format_opening_parentheses(token, &mut formatted_query);
+            }
+            TokenKind::CloseParen => {
+                formatter.format_closing_parentheses(token, &mut formatted_query);
+            }
+            TokenKind::Placeholder => {
+                formatter.format_placeholder(token, &mut formatted_query);
+            }
+            _ => match token.value {
+                "," => {
+                    formatter.format_comma(token, &mut formatted_query);
+                }
+                ":" => {
+                    formatter.format_with_space_after(token, &mut formatted_query);
+                }
+                "." => {
+                    formatter.format_without_spaces(token, &mut formatted_query);
+                }
+                ";" => {
+                    formatter.format_query_separator(token, &mut formatted_query);
+                }
+                _ => {
+                    formatter.format_with_spaces(token, &mut formatted_query);
+                }
+            },
         }
     }
     formatted_query.trim().to_string()

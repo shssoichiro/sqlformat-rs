@@ -465,51 +465,90 @@ fn get_uc_words(input: &str, words: usize) -> String {
 
 fn get_top_level_reserved_token<'a>(
     last_reserved_top_level_token: Option<Token<'a>>,
-) -> impl FnMut(&'a str) -> IResult<&'a str, Token<'a>> {
+) -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
     move |input: &'a str| {
         let uc_input: String = get_uc_words(input, 3);
-        let result: IResult<&str, &str> = alt((
-            terminated(tag("ADD"), end_of_word),
-            terminated(tag("AFTER"), end_of_word),
-            terminated(tag("ALTER COLUMN"), end_of_word),
-            terminated(tag("ALTER TABLE"), end_of_word),
-            terminated(tag("DELETE FROM"), end_of_word),
-            terminated(tag("EXCEPT"), end_of_word),
-            terminated(tag("FETCH FIRST"), end_of_word),
-            terminated(tag("FROM"), end_of_word),
-            terminated(tag("GROUP BY"), end_of_word),
-            terminated(tag("GO"), end_of_word),
-            terminated(tag("HAVING"), end_of_word),
-            terminated(tag("INSERT INTO"), end_of_word),
-            terminated(tag("INSERT"), end_of_word),
-            terminated(tag("LIMIT"), end_of_word),
-            terminated(tag("MODIFY"), end_of_word),
-            terminated(tag("ORDER BY"), end_of_word),
-            terminated(tag("SELECT"), end_of_word),
-            terminated(tag("SET CURRENT SCHEMA"), end_of_word),
-            terminated(tag("SET SCHEMA"), end_of_word),
-            terminated(tag("SET"), end_of_word),
-            alt((
-                terminated(tag("UPDATE"), end_of_word),
-                terminated(tag("VALUES"), end_of_word),
-                terminated(tag("WHERE"), end_of_word),
-                terminated(tag("RETURNING"), end_of_word),
-            )),
-        ))(&uc_input);
+
+        // First peek at the first character to determine which group to check
+        let first_char = match peek(anychar)(input) {
+            Ok((_, c)) => c.to_ascii_uppercase(),
+            Err(e) => return Err(e),
+        };
+
+        // Match keywords based on their first letter
+        let result: IResult<&str, &str> = match first_char {
+            'A' => alt((
+                terminated(tag("ADD"), end_of_word),
+                terminated(tag("AFTER"), end_of_word),
+                terminated(tag("ALTER COLUMN"), end_of_word),
+                terminated(tag("ALTER TABLE"), end_of_word),
+            ))(&uc_input),
+
+            'D' => terminated(tag("DELETE FROM"), end_of_word)(&uc_input),
+
+            'E' => terminated(tag("EXCEPT"), end_of_word)(&uc_input),
+
+            'F' => alt((
+                terminated(tag("FETCH FIRST"), end_of_word),
+                terminated(tag("FROM"), end_of_word),
+            ))(&uc_input),
+
+            'G' => alt((
+                terminated(tag("GROUP BY"), end_of_word),
+                terminated(tag("GO"), end_of_word),
+            ))(&uc_input),
+
+            'H' => terminated(tag("HAVING"), end_of_word)(&uc_input),
+
+            'I' => alt((
+                terminated(tag("INSERT INTO"), end_of_word),
+                terminated(tag("INSERT"), end_of_word),
+            ))(&uc_input),
+
+            'L' => terminated(tag("LIMIT"), end_of_word)(&uc_input),
+
+            'M' => terminated(tag("MODIFY"), end_of_word)(&uc_input),
+
+            'O' => terminated(tag("ORDER BY"), end_of_word)(&uc_input),
+
+            'R' => terminated(tag("RETURNING"), end_of_word)(&uc_input),
+
+            'S' => alt((
+                terminated(tag("SELECT"), end_of_word),
+                terminated(tag("SET CURRENT SCHEMA"), end_of_word),
+                terminated(tag("SET SCHEMA"), end_of_word),
+                terminated(tag("SET"), end_of_word),
+            ))(&uc_input),
+
+            'U' => terminated(tag("UPDATE"), end_of_word)(&uc_input),
+
+            'V' => terminated(tag("VALUES"), end_of_word)(&uc_input),
+
+            'W' => terminated(tag("WHERE"), end_of_word)(&uc_input),
+
+            // If the first character doesn't match any of our keywords, fail early
+            _ => Err(nom::Err::Error(nom::error::Error::new(
+                &uc_input,
+                nom::error::ErrorKind::Tag,
+            ))),
+        };
+
         if let Ok((_, token)) = result {
-            let final_word = token.split(' ').last().unwrap();
+            let final_word = token.split_whitespace().last().unwrap_or(token);
             let input_end_pos =
-                input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
+                input.to_ascii_uppercase().find(final_word).unwrap_or(0) + final_word.len();
             let (token, input) = input.split_at(input_end_pos);
+
             let kind = if token == "EXCEPT"
                 && last_reserved_top_level_token.is_some()
                 && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT"
             {
-                // If the query statement before and after the except keyword is not complete, mark it a `Word`
+                // If the query state doesn't allow EXCEPT, treat it as a regular word
                 TokenKind::Word
             } else {
                 TokenKind::ReservedTopLevel
             };
+
             Ok((
                 input,
                 Token {
@@ -519,10 +558,70 @@ fn get_top_level_reserved_token<'a>(
                 },
             ))
         } else {
-            Err(Err::Error(Error::new(input, ErrorKind::Alt)))
+            Err(Err::Error(Error::new(input, ErrorKind::Tag)))
         }
     }
 }
+//fn get_top_level_reserved_token<'a>(
+//    last_reserved_top_level_token: Option<Token<'a>>,
+//) -> impl FnMut(&'a str) -> IResult<&'a str, Token<'a>> {
+//    move |input: &'a str| {
+//        let uc_input: String = get_uc_words(input, 3);
+//        let result: IResult<&str, &str> = alt((
+//            terminated(tag("ADD"), end_of_word),
+//            terminated(tag("AFTER"), end_of_word),
+//            terminated(tag("ALTER COLUMN"), end_of_word),
+//            terminated(tag("ALTER TABLE"), end_of_word),
+//            terminated(tag("DELETE FROM"), end_of_word),
+//            terminated(tag("EXCEPT"), end_of_word),
+//            terminated(tag("FETCH FIRST"), end_of_word),
+//            terminated(tag("FROM"), end_of_word),
+//            terminated(tag("GROUP BY"), end_of_word),
+//            terminated(tag("GO"), end_of_word),
+//            terminated(tag("HAVING"), end_of_word),
+//            terminated(tag("INSERT INTO"), end_of_word),
+//            terminated(tag("INSERT"), end_of_word),
+//            terminated(tag("LIMIT"), end_of_word),
+//            terminated(tag("MODIFY"), end_of_word),
+//            terminated(tag("ORDER BY"), end_of_word),
+//            terminated(tag("SELECT"), end_of_word),
+//            terminated(tag("SET CURRENT SCHEMA"), end_of_word),
+//            terminated(tag("SET SCHEMA"), end_of_word),
+//            terminated(tag("SET"), end_of_word),
+//            alt((
+//                terminated(tag("UPDATE"), end_of_word),
+//                terminated(tag("VALUES"), end_of_word),
+//                terminated(tag("WHERE"), end_of_word),
+//                terminated(tag("RETURNING"), end_of_word),
+//            )),
+//        ))(&uc_input);
+//        if let Ok((_, token)) = result {
+//            let final_word = token.split(' ').last().unwrap();
+//            let input_end_pos =
+//                input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
+//            let (token, input) = input.split_at(input_end_pos);
+//            let kind = if token == "EXCEPT"
+//                && last_reserved_top_level_token.is_some()
+//                && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT"
+//            {
+//                // If the query statement before and after the except keyword is not complete, mark it a `Word`
+//                TokenKind::Word
+//            } else {
+//                TokenKind::ReservedTopLevel
+//            };
+//            Ok((
+//                input,
+//                Token {
+//                    kind,
+//                    value: token,
+//                    key: None,
+//                },
+//            ))
+//        } else {
+//            Err(Err::Error(Error::new(input, ErrorKind::Alt)))
+//        }
+//    }
+//}
 
 fn get_newline_reserved_token<'a>(
     last_reserved_token: Option<Token<'a>>,
@@ -607,27 +706,39 @@ fn get_plain_reserved_token(input: &str) -> IResult<&str, Token<'_>> {
 }
 fn get_plain_reserved_one_token(input: &str) -> IResult<&str, Token<'_>> {
     let uc_input = get_uc_words(input, 1);
-    let result: IResult<&str, &str> = alt((
-        terminated(tag("ACCESSIBLE"), end_of_word),
-        terminated(tag("ACTION"), end_of_word),
-        terminated(tag("AGAINST"), end_of_word),
-        terminated(tag("AGGREGATE"), end_of_word),
-        terminated(tag("ALGORITHM"), end_of_word),
-        terminated(tag("ALL"), end_of_word),
-        terminated(tag("ALTER"), end_of_word),
-        terminated(tag("ANALYSE"), end_of_word),
-        terminated(tag("ANALYZE"), end_of_word),
-        terminated(tag("AS"), end_of_word),
-        terminated(tag("ASC"), end_of_word),
-        terminated(tag("AUTOCOMMIT"), end_of_word),
-        terminated(tag("AUTO_INCREMENT"), end_of_word),
-        terminated(tag("BACKUP"), end_of_word),
-        terminated(tag("BETWEEN"), end_of_word),
-        terminated(tag("BINLOG"), end_of_word),
-        terminated(tag("BOTH"), end_of_word),
-        terminated(tag("CASCADE"), end_of_word),
-        terminated(tag("CASE"), end_of_word),
-        alt((
+
+    let first_char = match peek(anychar)(input) {
+        Ok((_, c)) => c.to_ascii_uppercase(),
+        Err(e) => return Err(e),
+    };
+
+    let result: IResult<&str, &str> = match first_char {
+        'A' => alt((
+            terminated(tag("ACCESSIBLE"), end_of_word),
+            terminated(tag("ACTION"), end_of_word),
+            terminated(tag("AGAINST"), end_of_word),
+            terminated(tag("AGGREGATE"), end_of_word),
+            terminated(tag("ALGORITHM"), end_of_word),
+            terminated(tag("ALL"), end_of_word),
+            terminated(tag("ALTER"), end_of_word),
+            terminated(tag("ANALYSE"), end_of_word),
+            terminated(tag("ANALYZE"), end_of_word),
+            terminated(tag("AS"), end_of_word),
+            terminated(tag("ASC"), end_of_word),
+            terminated(tag("AUTOCOMMIT"), end_of_word),
+            terminated(tag("AUTO_INCREMENT"), end_of_word),
+        ))(&uc_input),
+
+        'B' => alt((
+            terminated(tag("BACKUP"), end_of_word),
+            terminated(tag("BETWEEN"), end_of_word),
+            terminated(tag("BINLOG"), end_of_word),
+            terminated(tag("BOTH"), end_of_word),
+        ))(&uc_input),
+
+        'C' => alt((
+            terminated(tag("CASCADE"), end_of_word),
+            terminated(tag("CASE"), end_of_word),
             terminated(tag("CHANGE"), end_of_word),
             terminated(tag("CHANGED"), end_of_word),
             terminated(tag("CHARSET"), end_of_word),
@@ -644,307 +755,323 @@ fn get_plain_reserved_one_token(input: &str) -> IResult<&str, Token<'_>> {
             terminated(tag("CONCURRENT"), end_of_word),
             terminated(tag("CONSTRAINT"), end_of_word),
             terminated(tag("CONTAINS"), end_of_word),
-            terminated(tag("CONVERT"), end_of_word),
-            terminated(tag("CREATE"), end_of_word),
-            terminated(tag("CROSS"), end_of_word),
             alt((
+                terminated(tag("CONVERT"), end_of_word),
+                terminated(tag("CREATE"), end_of_word),
+                terminated(tag("CROSS"), end_of_word),
                 terminated(tag("CURRENT_TIMESTAMP"), end_of_word),
-                terminated(tag("DATABASE"), end_of_word),
-                terminated(tag("DATABASES"), end_of_word),
-                terminated(tag("DAY"), end_of_word),
-                terminated(tag("DAY_HOUR"), end_of_word),
-                terminated(tag("DAY_MINUTE"), end_of_word),
-                terminated(tag("DAY_SECOND"), end_of_word),
-                terminated(tag("DEFAULT"), end_of_word),
-                terminated(tag("DEFINER"), end_of_word),
-                terminated(tag("DELAYED"), end_of_word),
-                terminated(tag("DELETE"), end_of_word),
-                terminated(tag("DESC"), end_of_word),
-                terminated(tag("DESCRIBE"), end_of_word),
-                terminated(tag("DETERMINISTIC"), end_of_word),
-                terminated(tag("DISTINCT"), end_of_word),
-                terminated(tag("DISTINCTROW"), end_of_word),
-                terminated(tag("DIV"), end_of_word),
-                terminated(tag("DO"), end_of_word),
-                terminated(tag("DROP"), end_of_word),
-                terminated(tag("DUMPFILE"), end_of_word),
+            )),
+        ))(&uc_input),
+
+        'D' => alt((
+            terminated(tag("DATABASE"), end_of_word),
+            terminated(tag("DATABASES"), end_of_word),
+            terminated(tag("DAY"), end_of_word),
+            terminated(tag("DAY_HOUR"), end_of_word),
+            terminated(tag("DAY_MINUTE"), end_of_word),
+            terminated(tag("DAY_SECOND"), end_of_word),
+            terminated(tag("DEFAULT"), end_of_word),
+            terminated(tag("DEFINER"), end_of_word),
+            terminated(tag("DELAYED"), end_of_word),
+            terminated(tag("DELETE"), end_of_word),
+            terminated(tag("DESC"), end_of_word),
+            terminated(tag("DESCRIBE"), end_of_word),
+            terminated(tag("DETERMINISTIC"), end_of_word),
+            terminated(tag("DISTINCT"), end_of_word),
+            terminated(tag("DISTINCTROW"), end_of_word),
+            terminated(tag("DIV"), end_of_word),
+            terminated(tag("DO"), end_of_word),
+            terminated(tag("DROP"), end_of_word),
+            terminated(tag("DUMPFILE"), end_of_word),
+            terminated(tag("DUPLICATE"), end_of_word),
+            terminated(tag("DYNAMIC"), end_of_word),
+        ))(&uc_input),
+
+        'E' => alt((
+            terminated(tag("ELSE"), end_of_word),
+            terminated(tag("ENCLOSED"), end_of_word),
+            terminated(tag("END"), end_of_word),
+            terminated(tag("ENGINE"), end_of_word),
+            terminated(tag("ENGINES"), end_of_word),
+            terminated(tag("ENGINE_TYPE"), end_of_word),
+            terminated(tag("ESCAPE"), end_of_word),
+            terminated(tag("ESCAPED"), end_of_word),
+            terminated(tag("EVENTS"), end_of_word),
+            terminated(tag("EXEC"), end_of_word),
+            terminated(tag("EXECUTE"), end_of_word),
+            terminated(tag("EXISTS"), end_of_word),
+            terminated(tag("EXPLAIN"), end_of_word),
+            terminated(tag("EXTENDED"), end_of_word),
+        ))(&uc_input),
+
+        'F' => alt((
+            terminated(tag("FAST"), end_of_word),
+            terminated(tag("FETCH"), end_of_word),
+            terminated(tag("FIELDS"), end_of_word),
+            terminated(tag("FILE"), end_of_word),
+            terminated(tag("FIRST"), end_of_word),
+            terminated(tag("FIXED"), end_of_word),
+            terminated(tag("FLUSH"), end_of_word),
+            terminated(tag("FOR"), end_of_word),
+            terminated(tag("FORCE"), end_of_word),
+            terminated(tag("FOREIGN"), end_of_word),
+            terminated(tag("FULL"), end_of_word),
+            terminated(tag("FULLTEXT"), end_of_word),
+            terminated(tag("FUNCTION"), end_of_word),
+        ))(&uc_input),
+
+        'G' => alt((
+            terminated(tag("GLOBAL"), end_of_word),
+            terminated(tag("GRANT"), end_of_word),
+            terminated(tag("GRANTS"), end_of_word),
+            terminated(tag("GROUP_CONCAT"), end_of_word),
+        ))(&uc_input),
+
+        'H' => alt((
+            terminated(tag("HEAP"), end_of_word),
+            terminated(tag("HIGH_PRIORITY"), end_of_word),
+            terminated(tag("HOSTS"), end_of_word),
+            terminated(tag("HOUR"), end_of_word),
+            terminated(tag("HOUR_MINUTE"), end_of_word),
+            terminated(tag("HOUR_SECOND"), end_of_word),
+        ))(&uc_input),
+
+        'I' => alt((
+            terminated(tag("IDENTIFIED"), end_of_word),
+            terminated(tag("IF"), end_of_word),
+            terminated(tag("IFNULL"), end_of_word),
+            terminated(tag("IGNORE"), end_of_word),
+            terminated(tag("IN"), end_of_word),
+            terminated(tag("INDEX"), end_of_word),
+            terminated(tag("INDEXES"), end_of_word),
+            terminated(tag("INFILE"), end_of_word),
+            terminated(tag("INSERT"), end_of_word),
+            terminated(tag("INSERT_ID"), end_of_word),
+            terminated(tag("INSERT_METHOD"), end_of_word),
+            terminated(tag("INTERVAL"), end_of_word),
+            terminated(tag("INTO"), end_of_word),
+            terminated(tag("INVOKER"), end_of_word),
+            terminated(tag("IS"), end_of_word),
+            terminated(tag("ISOLATION"), end_of_word),
+        ))(&uc_input),
+
+        'K' => alt((
+            terminated(tag("KEY"), end_of_word),
+            terminated(tag("KEYS"), end_of_word),
+            terminated(tag("KILL"), end_of_word),
+        ))(&uc_input),
+
+        'L' => alt((
+            terminated(tag("LAST_INSERT_ID"), end_of_word),
+            terminated(tag("LEADING"), end_of_word),
+            terminated(tag("LEVEL"), end_of_word),
+            terminated(tag("LIKE"), end_of_word),
+            terminated(tag("LINEAR"), end_of_word),
+            terminated(tag("LINES"), end_of_word),
+            terminated(tag("LOAD"), end_of_word),
+            terminated(tag("LOCAL"), end_of_word),
+            terminated(tag("LOCK"), end_of_word),
+            terminated(tag("LOCKS"), end_of_word),
+            terminated(tag("LOGS"), end_of_word),
+            terminated(tag("LOW_PRIORITY"), end_of_word),
+        ))(&uc_input),
+
+        'M' => alt((
+            terminated(tag("MARIA"), end_of_word),
+            terminated(tag("MASTER"), end_of_word),
+            terminated(tag("MASTER_CONNECT_RETRY"), end_of_word),
+            terminated(tag("MASTER_HOST"), end_of_word),
+            terminated(tag("MASTER_LOG_FILE"), end_of_word),
+            terminated(tag("MATCH"), end_of_word),
+            terminated(tag("MAX_CONNECTIONS_PER_HOUR"), end_of_word),
+            terminated(tag("MAX_QUERIES_PER_HOUR"), end_of_word),
+            terminated(tag("MAX_ROWS"), end_of_word),
+            terminated(tag("MAX_UPDATES_PER_HOUR"), end_of_word),
+            terminated(tag("MAX_USER_CONNECTIONS"), end_of_word),
+            terminated(tag("MEDIUM"), end_of_word),
+            terminated(tag("MERGE"), end_of_word),
+            terminated(tag("MINUTE"), end_of_word),
+            terminated(tag("MINUTE_SECOND"), end_of_word),
+            terminated(tag("MIN_ROWS"), end_of_word),
+            terminated(tag("MODE"), end_of_word),
+            terminated(tag("MODIFY"), end_of_word),
+            terminated(tag("MONTH"), end_of_word),
+            terminated(tag("MRG_MYISAM"), end_of_word),
+            terminated(tag("MYISAM"), end_of_word),
+        ))(&uc_input),
+
+        'N' => alt((
+            terminated(tag("NAMES"), end_of_word),
+            terminated(tag("NATURAL"), end_of_word),
+            terminated(tag("NOT"), end_of_word),
+            terminated(tag("NOW()"), end_of_word),
+            terminated(tag("NULL"), end_of_word),
+        ))(&uc_input),
+
+        'O' => alt((
+            terminated(tag("OFFSET"), end_of_word),
+            terminated(tag("ON"), end_of_word),
+            terminated(tag("ONLY"), end_of_word),
+            terminated(tag("OPEN"), end_of_word),
+            terminated(tag("OPTIMIZE"), end_of_word),
+            terminated(tag("OPTION"), end_of_word),
+            terminated(tag("OPTIONALLY"), end_of_word),
+            terminated(tag("OUTFILE"), end_of_word),
+        ))(&uc_input),
+
+        'P' => alt((
+            terminated(tag("PACK_KEYS"), end_of_word),
+            terminated(tag("PAGE"), end_of_word),
+            terminated(tag("PARTIAL"), end_of_word),
+            terminated(tag("PARTITION"), end_of_word),
+            terminated(tag("PARTITIONS"), end_of_word),
+            terminated(tag("PASSWORD"), end_of_word),
+            terminated(tag("PRIMARY"), end_of_word),
+            terminated(tag("PRIVILEGES"), end_of_word),
+            terminated(tag("PROCEDURE"), end_of_word),
+            terminated(tag("PROCESS"), end_of_word),
+            terminated(tag("PROCESSLIST"), end_of_word),
+            terminated(tag("PURGE"), end_of_word),
+        ))(&uc_input),
+
+        'Q' => terminated(tag("QUICK"), end_of_word)(&uc_input),
+
+        'R' => alt((
+            terminated(tag("RAID0"), end_of_word),
+            terminated(tag("RAID_CHUNKS"), end_of_word),
+            terminated(tag("RAID_CHUNKSIZE"), end_of_word),
+            terminated(tag("RAID_TYPE"), end_of_word),
+            terminated(tag("RANGE"), end_of_word),
+            terminated(tag("READ"), end_of_word),
+            terminated(tag("READ_ONLY"), end_of_word),
+            terminated(tag("READ_WRITE"), end_of_word),
+            terminated(tag("REFERENCES"), end_of_word),
+            terminated(tag("REGEXP"), end_of_word),
+            terminated(tag("RELOAD"), end_of_word),
+            terminated(tag("RENAME"), end_of_word),
+            terminated(tag("REPAIR"), end_of_word),
+            terminated(tag("REPEATABLE"), end_of_word),
+            terminated(tag("REPLACE"), end_of_word),
+            terminated(tag("REPLICATION"), end_of_word),
+            terminated(tag("RESET"), end_of_word),
+            alt((
+                terminated(tag("RESTORE"), end_of_word),
+                terminated(tag("RESTRICT"), end_of_word),
+                terminated(tag("RETURN"), end_of_word),
+                terminated(tag("RETURNS"), end_of_word),
+                terminated(tag("REVOKE"), end_of_word),
+                terminated(tag("RLIKE"), end_of_word),
+                terminated(tag("ROLLBACK"), end_of_word),
+                terminated(tag("ROW"), end_of_word),
+                terminated(tag("ROWS"), end_of_word),
+                terminated(tag("ROW_FORMAT"), end_of_word),
+            )),
+        ))(&uc_input),
+
+        'S' => alt((
+            terminated(tag("SECOND"), end_of_word),
+            terminated(tag("SECURITY"), end_of_word),
+            terminated(tag("SEPARATOR"), end_of_word),
+            terminated(tag("SERIALIZABLE"), end_of_word),
+            terminated(tag("SESSION"), end_of_word),
+            terminated(tag("SHARE"), end_of_word),
+            terminated(tag("SHOW"), end_of_word),
+            terminated(tag("SHUTDOWN"), end_of_word),
+            terminated(tag("SLAVE"), end_of_word),
+            terminated(tag("SONAME"), end_of_word),
+            terminated(tag("SOUNDS"), end_of_word),
+            terminated(tag("SQL"), end_of_word),
+            terminated(tag("SQL_AUTO_IS_NULL"), end_of_word),
+            terminated(tag("SQL_BIG_RESULT"), end_of_word),
+            terminated(tag("SQL_BIG_SELECTS"), end_of_word),
+            terminated(tag("SQL_BIG_TABLES"), end_of_word),
+            terminated(tag("SQL_BUFFER_RESULT"), end_of_word),
+            terminated(tag("SQL_CACHE"), end_of_word),
+            alt((
+                terminated(tag("SQL_CALC_FOUND_ROWS"), end_of_word),
+                terminated(tag("SQL_LOG_BIN"), end_of_word),
+                terminated(tag("SQL_LOG_OFF"), end_of_word),
+                terminated(tag("SQL_LOG_UPDATE"), end_of_word),
+                terminated(tag("SQL_LOW_PRIORITY_UPDATES"), end_of_word),
+                terminated(tag("SQL_MAX_JOIN_SIZE"), end_of_word),
+                terminated(tag("SQL_NO_CACHE"), end_of_word),
+                terminated(tag("SQL_QUOTE_SHOW_CREATE"), end_of_word),
+                terminated(tag("SQL_BIG_RESULT"), end_of_word),
+                terminated(tag("SQL_BIG_SELECTS"), end_of_word),
+                terminated(tag("SQL_BIG_TABLES"), end_of_word),
+                terminated(tag("SQL_BUFFER_RESULT"), end_of_word),
+                terminated(tag("SQL_CACHE"), end_of_word),
+                terminated(tag("SQL_CALC_FOUND_ROWS"), end_of_word),
+                terminated(tag("SQL_LOG_BIN"), end_of_word),
+                terminated(tag("SQL_LOG_OFF"), end_of_word),
+                terminated(tag("SQL_LOG_UPDATE"), end_of_word),
+                terminated(tag("SQL_LOW_PRIORITY_UPDATES"), end_of_word),
+                terminated(tag("SQL_MAX_JOIN_SIZE"), end_of_word),
                 alt((
-                    terminated(tag("DUPLICATE"), end_of_word),
-                    terminated(tag("DYNAMIC"), end_of_word),
-                    terminated(tag("ELSE"), end_of_word),
-                    terminated(tag("ENCLOSED"), end_of_word),
-                    terminated(tag("END"), end_of_word),
-                    terminated(tag("ENGINE"), end_of_word),
-                    terminated(tag("ENGINES"), end_of_word),
-                    terminated(tag("ENGINE_TYPE"), end_of_word),
-                    terminated(tag("ESCAPE"), end_of_word),
-                    terminated(tag("ESCAPED"), end_of_word),
-                    terminated(tag("EVENTS"), end_of_word),
-                    terminated(tag("EXEC"), end_of_word),
-                    terminated(tag("EXECUTE"), end_of_word),
-                    terminated(tag("EXISTS"), end_of_word),
-                    terminated(tag("EXPLAIN"), end_of_word),
-                    terminated(tag("EXTENDED"), end_of_word),
-                    terminated(tag("FAST"), end_of_word),
-                    terminated(tag("FETCH"), end_of_word),
-                    terminated(tag("FIELDS"), end_of_word),
-                    alt((
-                        terminated(tag("FILE"), end_of_word),
-                        terminated(tag("FIRST"), end_of_word),
-                        terminated(tag("FIXED"), end_of_word),
-                        terminated(tag("FLUSH"), end_of_word),
-                        terminated(tag("FOR"), end_of_word),
-                        terminated(tag("FORCE"), end_of_word),
-                        terminated(tag("FOREIGN"), end_of_word),
-                        terminated(tag("FULL"), end_of_word),
-                        terminated(tag("FULLTEXT"), end_of_word),
-                        terminated(tag("FUNCTION"), end_of_word),
-                        terminated(tag("GLOBAL"), end_of_word),
-                        terminated(tag("GRANT"), end_of_word),
-                        terminated(tag("GRANTS"), end_of_word),
-                        terminated(tag("GROUP_CONCAT"), end_of_word),
-                        terminated(tag("HEAP"), end_of_word),
-                        terminated(tag("HIGH_PRIORITY"), end_of_word),
-                        terminated(tag("HOSTS"), end_of_word),
-                        terminated(tag("HOUR"), end_of_word),
-                        terminated(tag("HOUR_MINUTE"), end_of_word),
-                        terminated(tag("HOUR_SECOND"), end_of_word),
-                        alt((
-                            terminated(tag("IDENTIFIED"), end_of_word),
-                            terminated(tag("IF"), end_of_word),
-                            terminated(tag("IFNULL"), end_of_word),
-                            terminated(tag("IGNORE"), end_of_word),
-                            terminated(tag("IN"), end_of_word),
-                            terminated(tag("INDEX"), end_of_word),
-                            terminated(tag("INDEXES"), end_of_word),
-                            terminated(tag("INFILE"), end_of_word),
-                            terminated(tag("INSERT"), end_of_word),
-                            terminated(tag("INSERT_ID"), end_of_word),
-                            terminated(tag("INSERT_METHOD"), end_of_word),
-                            terminated(tag("INTERVAL"), end_of_word),
-                            terminated(tag("INTO"), end_of_word),
-                            terminated(tag("INVOKER"), end_of_word),
-                            terminated(tag("IS"), end_of_word),
-                            terminated(tag("ISOLATION"), end_of_word),
-                            terminated(tag("KEY"), end_of_word),
-                            terminated(tag("KEYS"), end_of_word),
-                            terminated(tag("KILL"), end_of_word),
-                            terminated(tag("LAST_INSERT_ID"), end_of_word),
-                            alt((
-                                terminated(tag("LEADING"), end_of_word),
-                                terminated(tag("LEVEL"), end_of_word),
-                                terminated(tag("LIKE"), end_of_word),
-                                terminated(tag("LINEAR"), end_of_word),
-                                terminated(tag("LINES"), end_of_word),
-                                terminated(tag("LOAD"), end_of_word),
-                                terminated(tag("LOCAL"), end_of_word),
-                                terminated(tag("LOCK"), end_of_word),
-                                terminated(tag("LOCKS"), end_of_word),
-                                terminated(tag("LOGS"), end_of_word),
-                                terminated(tag("LOW_PRIORITY"), end_of_word),
-                                terminated(tag("MARIA"), end_of_word),
-                                terminated(tag("MASTER"), end_of_word),
-                                terminated(tag("MASTER_CONNECT_RETRY"), end_of_word),
-                                terminated(tag("MASTER_HOST"), end_of_word),
-                                terminated(tag("MASTER_LOG_FILE"), end_of_word),
-                                terminated(tag("MATCH"), end_of_word),
-                                terminated(tag("MAX_CONNECTIONS_PER_HOUR"), end_of_word),
-                                terminated(tag("MAX_QUERIES_PER_HOUR"), end_of_word),
-                                terminated(tag("MAX_ROWS"), end_of_word),
-                                alt((
-                                    terminated(tag("MAX_UPDATES_PER_HOUR"), end_of_word),
-                                    terminated(tag("MAX_USER_CONNECTIONS"), end_of_word),
-                                    terminated(tag("MEDIUM"), end_of_word),
-                                    terminated(tag("MERGE"), end_of_word),
-                                    terminated(tag("MINUTE"), end_of_word),
-                                    terminated(tag("MINUTE_SECOND"), end_of_word),
-                                    terminated(tag("MIN_ROWS"), end_of_word),
-                                    terminated(tag("MODE"), end_of_word),
-                                    terminated(tag("MODIFY"), end_of_word),
-                                    terminated(tag("MONTH"), end_of_word),
-                                    terminated(tag("MRG_MYISAM"), end_of_word),
-                                    terminated(tag("MYISAM"), end_of_word),
-                                    terminated(tag("NAMES"), end_of_word),
-                                    terminated(tag("NATURAL"), end_of_word),
-                                    terminated(tag("NOT"), end_of_word),
-                                    terminated(tag("NOW()"), end_of_word),
-                                    terminated(tag("NULL"), end_of_word),
-                                    terminated(tag("OFFSET"), end_of_word),
-                                    alt((
-                                        terminated(tag("ON"), end_of_word),
-                                        terminated(tag("ONLY"), end_of_word),
-                                        terminated(tag("OPEN"), end_of_word),
-                                        terminated(tag("OPTIMIZE"), end_of_word),
-                                        terminated(tag("OPTION"), end_of_word),
-                                        terminated(tag("OPTIONALLY"), end_of_word),
-                                        terminated(tag("OUTFILE"), end_of_word),
-                                        terminated(tag("PACK_KEYS"), end_of_word),
-                                        terminated(tag("PAGE"), end_of_word),
-                                        terminated(tag("PARTIAL"), end_of_word),
-                                        terminated(tag("PARTITION"), end_of_word),
-                                        terminated(tag("PARTITIONS"), end_of_word),
-                                        terminated(tag("PASSWORD"), end_of_word),
-                                        terminated(tag("PRIMARY"), end_of_word),
-                                        terminated(tag("PRIVILEGES"), end_of_word),
-                                        terminated(tag("PROCEDURE"), end_of_word),
-                                        terminated(tag("PROCESS"), end_of_word),
-                                        terminated(tag("PROCESSLIST"), end_of_word),
-                                        terminated(tag("PURGE"), end_of_word),
-                                        terminated(tag("QUICK"), end_of_word),
-                                        alt((
-                                            terminated(tag("RAID0"), end_of_word),
-                                            terminated(tag("RAID_CHUNKS"), end_of_word),
-                                            terminated(tag("RAID_CHUNKSIZE"), end_of_word),
-                                            terminated(tag("RAID_TYPE"), end_of_word),
-                                            terminated(tag("RANGE"), end_of_word),
-                                            terminated(tag("READ"), end_of_word),
-                                            terminated(tag("READ_ONLY"), end_of_word),
-                                            terminated(tag("READ_WRITE"), end_of_word),
-                                            terminated(tag("REFERENCES"), end_of_word),
-                                            terminated(tag("REGEXP"), end_of_word),
-                                            terminated(tag("RELOAD"), end_of_word),
-                                            terminated(tag("RENAME"), end_of_word),
-                                            terminated(tag("REPAIR"), end_of_word),
-                                            terminated(tag("REPEATABLE"), end_of_word),
-                                            terminated(tag("REPLACE"), end_of_word),
-                                            terminated(tag("REPLICATION"), end_of_word),
-                                            terminated(tag("RESET"), end_of_word),
-                                            terminated(tag("RESTORE"), end_of_word),
-                                            terminated(tag("RESTRICT"), end_of_word),
-                                            terminated(tag("RETURN"), end_of_word),
-                                            alt((
-                                                terminated(tag("RETURNS"), end_of_word),
-                                                terminated(tag("REVOKE"), end_of_word),
-                                                terminated(tag("RLIKE"), end_of_word),
-                                                terminated(tag("ROLLBACK"), end_of_word),
-                                                terminated(tag("ROW"), end_of_word),
-                                                terminated(tag("ROWS"), end_of_word),
-                                                terminated(tag("ROW_FORMAT"), end_of_word),
-                                                terminated(tag("SECOND"), end_of_word),
-                                                terminated(tag("SECURITY"), end_of_word),
-                                                terminated(tag("SEPARATOR"), end_of_word),
-                                                terminated(tag("SERIALIZABLE"), end_of_word),
-                                                terminated(tag("SESSION"), end_of_word),
-                                                terminated(tag("SHARE"), end_of_word),
-                                                terminated(tag("SHOW"), end_of_word),
-                                                terminated(tag("SHUTDOWN"), end_of_word),
-                                                terminated(tag("SLAVE"), end_of_word),
-                                                terminated(tag("SONAME"), end_of_word),
-                                                terminated(tag("SOUNDS"), end_of_word),
-                                                terminated(tag("SQL"), end_of_word),
-                                                terminated(tag("SQL_AUTO_IS_NULL"), end_of_word),
-                                                alt((
-                                                    terminated(tag("SQL_BIG_RESULT"), end_of_word),
-                                                    terminated(tag("SQL_BIG_SELECTS"), end_of_word),
-                                                    terminated(tag("SQL_BIG_TABLES"), end_of_word),
-                                                    terminated(
-                                                        tag("SQL_BUFFER_RESULT"),
-                                                        end_of_word,
-                                                    ),
-                                                    terminated(tag("SQL_CACHE"), end_of_word),
-                                                    terminated(
-                                                        tag("SQL_CALC_FOUND_ROWS"),
-                                                        end_of_word,
-                                                    ),
-                                                    terminated(tag("SQL_LOG_BIN"), end_of_word),
-                                                    terminated(tag("SQL_LOG_OFF"), end_of_word),
-                                                    terminated(tag("SQL_LOG_UPDATE"), end_of_word),
-                                                    terminated(
-                                                        tag("SQL_LOW_PRIORITY_UPDATES"),
-                                                        end_of_word,
-                                                    ),
-                                                    terminated(
-                                                        tag("SQL_MAX_JOIN_SIZE"),
-                                                        end_of_word,
-                                                    ),
-                                                    terminated(tag("SQL_NO_CACHE"), end_of_word),
-                                                    terminated(
-                                                        tag("SQL_QUOTE_SHOW_CREATE"),
-                                                        end_of_word,
-                                                    ),
-                                                    terminated(
-                                                        tag("SQL_SAFE_UPDATES"),
-                                                        end_of_word,
-                                                    ),
-                                                    terminated(
-                                                        tag("SQL_SELECT_LIMIT"),
-                                                        end_of_word,
-                                                    ),
-                                                    terminated(
-                                                        tag("SQL_SLAVE_SKIP_COUNTER"),
-                                                        end_of_word,
-                                                    ),
-                                                    terminated(
-                                                        tag("SQL_SMALL_RESULT"),
-                                                        end_of_word,
-                                                    ),
-                                                    terminated(tag("SQL_WARNINGS"), end_of_word),
-                                                    terminated(tag("START"), end_of_word),
-                                                    terminated(tag("STARTING"), end_of_word),
-                                                    alt((
-                                                        terminated(tag("STATUS"), end_of_word),
-                                                        terminated(tag("STOP"), end_of_word),
-                                                        terminated(tag("STORAGE"), end_of_word),
-                                                        terminated(
-                                                            tag("STRAIGHT_JOIN"),
-                                                            end_of_word,
-                                                        ),
-                                                        terminated(tag("STRING"), end_of_word),
-                                                        terminated(tag("STRIPED"), end_of_word),
-                                                        terminated(tag("SUPER"), end_of_word),
-                                                        terminated(tag("TABLE"), end_of_word),
-                                                        terminated(tag("TABLES"), end_of_word),
-                                                        terminated(tag("TEMPORARY"), end_of_word),
-                                                        terminated(tag("TERMINATED"), end_of_word),
-                                                        terminated(tag("THEN"), end_of_word),
-                                                        terminated(tag("TO"), end_of_word),
-                                                        terminated(tag("TRAILING"), end_of_word),
-                                                        terminated(
-                                                            tag("TRANSACTIONAL"),
-                                                            end_of_word,
-                                                        ),
-                                                        terminated(tag("TRUE"), end_of_word),
-                                                        terminated(tag("TRUNCATE"), end_of_word),
-                                                        terminated(tag("TYPE"), end_of_word),
-                                                        terminated(tag("TYPES"), end_of_word),
-                                                        terminated(tag("UNCOMMITTED"), end_of_word),
-                                                        alt((
-                                                            terminated(tag("UNIQUE"), end_of_word),
-                                                            terminated(tag("UNLOCK"), end_of_word),
-                                                            terminated(
-                                                                tag("UNSIGNED"),
-                                                                end_of_word,
-                                                            ),
-                                                            terminated(tag("USAGE"), end_of_word),
-                                                            terminated(tag("USE"), end_of_word),
-                                                            terminated(tag("USING"), end_of_word),
-                                                            terminated(
-                                                                tag("VARIABLES"),
-                                                                end_of_word,
-                                                            ),
-                                                            terminated(tag("VIEW"), end_of_word),
-                                                            terminated(tag("WHEN"), end_of_word),
-                                                            terminated(tag("WITH"), end_of_word),
-                                                            terminated(tag("WORK"), end_of_word),
-                                                            terminated(tag("WRITE"), end_of_word),
-                                                            terminated(
-                                                                tag("YEAR_MONTH"),
-                                                                end_of_word,
-                                                            ),
-                                                        )),
-                                                    )),
-                                                )),
-                                            )),
-                                        )),
-                                    )),
-                                )),
-                            )),
-                        )),
-                    )),
+                    terminated(tag("SQL_NO_CACHE"), end_of_word),
+                    terminated(tag("SQL_QUOTE_SHOW_CREATE"), end_of_word),
+                    terminated(tag("SQL_SAFE_UPDATES"), end_of_word),
+                    terminated(tag("SQL_SELECT_LIMIT"), end_of_word),
+                    terminated(tag("SQL_SLAVE_SKIP_COUNTER"), end_of_word),
+                    terminated(tag("SQL_SMALL_RESULT"), end_of_word),
+                    terminated(tag("SQL_WARNINGS"), end_of_word),
+                    terminated(tag("START"), end_of_word),
+                    terminated(tag("STARTING"), end_of_word),
+                    terminated(tag("STATUS"), end_of_word),
+                    terminated(tag("STOP"), end_of_word),
+                    terminated(tag("STORAGE"), end_of_word),
+                    terminated(tag("STRAIGHT_JOIN"), end_of_word),
+                    terminated(tag("STRING"), end_of_word),
+                    terminated(tag("STRIPED"), end_of_word),
+                    terminated(tag("SUPER"), end_of_word),
                 )),
             )),
-        )),
-    ))(&uc_input);
+        ))(&uc_input),
+
+        'T' => alt((
+            terminated(tag("TABLE"), end_of_word),
+            terminated(tag("TABLES"), end_of_word),
+            terminated(tag("TEMPORARY"), end_of_word),
+            terminated(tag("TERMINATED"), end_of_word),
+            terminated(tag("THEN"), end_of_word),
+            terminated(tag("TO"), end_of_word),
+            terminated(tag("TRAILING"), end_of_word),
+            terminated(tag("TRANSACTIONAL"), end_of_word),
+            terminated(tag("TRUE"), end_of_word),
+            terminated(tag("TRUNCATE"), end_of_word),
+            terminated(tag("TYPE"), end_of_word),
+            terminated(tag("TYPES"), end_of_word),
+        ))(&uc_input),
+
+        'U' => alt((
+            terminated(tag("UNCOMMITTED"), end_of_word),
+            terminated(tag("UNIQUE"), end_of_word),
+            terminated(tag("UNLOCK"), end_of_word),
+            terminated(tag("UNSIGNED"), end_of_word),
+            terminated(tag("USAGE"), end_of_word),
+            terminated(tag("USE"), end_of_word),
+            terminated(tag("USING"), end_of_word),
+        ))(&uc_input),
+
+        'V' => alt((
+            terminated(tag("VARIABLES"), end_of_word),
+            terminated(tag("VIEW"), end_of_word),
+        ))(&uc_input),
+
+        'W' => alt((
+            terminated(tag("WHEN"), end_of_word),
+            terminated(tag("WITH"), end_of_word),
+            terminated(tag("WORK"), end_of_word),
+            terminated(tag("WRITE"), end_of_word),
+        ))(&uc_input),
+
+        'Y' => alt((terminated(tag("YEAR_MONTH"), end_of_word),))(&uc_input),
+        // If the first character doesn't match any of our keywords, fail early
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            &uc_input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    };
     if let Ok((_, token)) = result {
         let input_end_pos = token.len();
         let (token, input) = input.split_at(input_end_pos);

@@ -1,3 +1,10 @@
+### Version 0.3.1
+
+- Allow latest regex version (#55)
+  - [slightly breaking] Increases minimum Rust version to 1.65
+- Fixes for operator parsing (#57)
+- Performance improvements (#58)
+
 ### Version 0.3.0
 
 - [breaking] fix: Ignore keywords for uppercase=True (#53)

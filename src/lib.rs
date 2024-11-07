@@ -669,7 +669,7 @@ mod tests {
     #[test]
     fn it_formats_postgres_specific_operators() {
         let strings = [
-            ("column::int", "column :: int"),
+            ("column::int", "column::int"),
             ("v->2", "v -> 2"),
             ("v->>2", "v ->> 2"),
             ("foo ~~ 'hello'", "foo ~~ 'hello'"),
@@ -1838,6 +1838,26 @@ SELECT
   left ?-| right,
   left ?|| right,
   left ~= right"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+    #[test]
+    fn it_formats_double_colons() {
+        let input = "select text  ::  text, num::integer, data::json, (x - y)::integer  frOM foo";
+        let options = FormatOptions {
+            uppercase: Some(false),
+            ..FormatOptions::default()
+        };
+        let expected = indoc!(
+            "
+select
+  text::text,
+  num::integer,
+  data::json,
+  (x - y)::integer
+from
+  foo"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

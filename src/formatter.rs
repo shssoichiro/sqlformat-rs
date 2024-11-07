@@ -154,9 +154,7 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_double_colon(&self, _token: &Token<'_>, query: &mut String) {
-        if query.ends_with(char::is_whitespace) {
-            query.pop();
-        }
+        self.trim_all_spaces_end(query);
         query.push_str("::");
     }
     fn format_block_comment(&self, token: &Token<'_>, query: &mut String) {

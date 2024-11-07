@@ -1843,7 +1843,7 @@ SELECT
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
     #[test]
-    fn it_keept_() {
+    fn it_formats_double_colons() {
         let input = "select text  ::  text, num::integer, data::json, (x - y)::integer  frOM foo";
         let options = FormatOptions {
             uppercase: Some(false),

@@ -80,6 +80,9 @@ pub(crate) fn format(
             TokenKind::Placeholder => {
                 formatter.format_placeholder(token, &mut formatted_query);
             }
+            TokenKind::DoubleColon => {
+                formatter.format_double_colon(token, &mut formatted_query);
+            }
             _ => match token.value {
                 "," => {
                     formatter.format_comma(token, &mut formatted_query);
@@ -150,6 +153,12 @@ impl<'a> Formatter<'a> {
         self.add_new_line(query);
     }
 
+    fn format_double_colon(&self, _token: &Token<'_>, query: &mut String) {
+        if query.ends_with(char::is_whitespace) {
+            query.pop();
+        }
+        query.push_str("::");
+    }
     fn format_block_comment(&self, token: &Token<'_>, query: &mut String) {
         self.add_new_line(query);
         query.push_str(&self.indent_comment(token.value));

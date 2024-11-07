@@ -46,6 +46,7 @@ pub(crate) struct Token<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TokenKind {
+    DoubleColon,
     Whitespace,
     String,
     Reserved,
@@ -107,12 +108,25 @@ fn get_next_token<'a>(
                 last_reserved_top_level_token,
             )
         })
+        .or_else(|_| get_double_colon_token(input))
         .or_else(|_| get_operator_token(input))
         .or_else(|_| get_placeholder_token(input, named_placeholders))
         .or_else(|_| get_word_token(input))
         .or_else(|_| get_any_other_char(input))
 }
-
+fn get_double_colon_token(input: &str) -> IResult<&str, Token<'_>> {
+    // Use the tag combinator to match the "::" in the input
+    tag("::")(input).map(|(input, token)| {
+        (
+            input,
+            Token {
+                kind: TokenKind::DoubleColon,
+                value: token,
+                key: None,
+            },
+        )
+    })
+}
 fn get_whitespace_token(input: &str) -> IResult<&str, Token<'_>> {
     take_while1(char::is_whitespace)(input).map(|(input, token)| {
         (
@@ -1073,7 +1087,6 @@ fn get_operator_token(input: &str) -> IResult<&str, Token<'_>> {
         tag(">"),
         tag("="),
         tag("|"),
-        tag(":"),
         tag("-"),
         tag("~"),
         tag("*"),
@@ -1083,6 +1096,7 @@ fn get_operator_token(input: &str) -> IResult<&str, Token<'_>> {
         tag("?"),
         tag("#"),
         tag("/"),
+        tag(":"),
     ));
 
     map(

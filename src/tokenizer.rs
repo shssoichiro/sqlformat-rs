@@ -115,7 +115,6 @@ fn get_next_token<'a>(
         .or_else(|_| get_any_other_char(input))
 }
 fn get_double_colon_token(input: &str) -> IResult<&str, Token<'_>> {
-    // Use the tag combinator to match the "::" in the input
     tag("::")(input).map(|(input, token)| {
         (
             input,
@@ -1087,6 +1086,7 @@ fn get_operator_token(input: &str) -> IResult<&str, Token<'_>> {
         tag(">"),
         tag("="),
         tag("|"),
+        tag(":"),
         tag("-"),
         tag("~"),
         tag("*"),
@@ -1096,7 +1096,6 @@ fn get_operator_token(input: &str) -> IResult<&str, Token<'_>> {
         tag("?"),
         tag("#"),
         tag("/"),
-        tag(":"),
     ));
 
     map(

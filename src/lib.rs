@@ -1844,7 +1844,7 @@ SELECT
     }
     #[test]
     fn it_keept_() {
-        let input = "select text::text, num::integer, data::json frOM foo";
+        let input = "select text::text, num::integer, data::json, (x - y)::integer  frOM foo";
         let options = FormatOptions {
             uppercase: Some(false),
             ..FormatOptions::default()
@@ -1854,7 +1854,8 @@ SELECT
 select
   text::text,
   num::integer,
-  data::json
+  data::json,
+  (x - y)::integer
 from
   foo"
         );

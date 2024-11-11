@@ -580,24 +580,63 @@ fn get_newline_reserved_token<'a>(
     last_reserved_token: Option<Token<'a>>,
 ) -> impl FnMut(&'a str) -> IResult<&'a str, Token<'a>> {
     move |input: &'a str| {
-        let uc_input = get_uc_words(input, 3);
-        let result: IResult<&str, &str> = alt((
-            terminated(tag("AND"), end_of_word),
-            terminated(tag("CROSS APPLY"), end_of_word),
-            terminated(tag("CROSS JOIN"), end_of_word),
-            terminated(tag("ELSE"), end_of_word),
-            terminated(tag("INNER JOIN"), end_of_word),
+        let uc_input: String = get_uc_words(input, 3);
+
+        // We have to break up the alternatives into multiple subsets
+        // to avoid exceeding the alt() 21 element limit.
+
+        // Standard SQL joins
+        let standard_joins = alt((
             terminated(tag("JOIN"), end_of_word),
+            terminated(tag("INNER JOIN"), end_of_word),
             terminated(tag("LEFT JOIN"), end_of_word),
-            terminated(tag("LEFT OUTER JOIN"), end_of_word),
-            terminated(tag("OR"), end_of_word),
-            terminated(tag("OUTER APPLY"), end_of_word),
-            terminated(tag("OUTER JOIN"), end_of_word),
             terminated(tag("RIGHT JOIN"), end_of_word),
+            terminated(tag("FULL JOIN"), end_of_word),
+            terminated(tag("CROSS JOIN"), end_of_word),
+            terminated(tag("LEFT OUTER JOIN"), end_of_word),
             terminated(tag("RIGHT OUTER JOIN"), end_of_word),
-            terminated(tag("WHEN"), end_of_word),
+            terminated(tag("FULL OUTER JOIN"), end_of_word),
+        ));
+
+        // Warehouse-specific ANY/SEMI/ANTI joins
+        let specific_joins = alt((
+            terminated(tag("INNER ANY JOIN"), end_of_word),
+            terminated(tag("LEFT ANY JOIN"), end_of_word),
+            terminated(tag("RIGHT ANY JOIN"), end_of_word),
+            terminated(tag("ANY JOIN"), end_of_word),
+            terminated(tag("SEMI JOIN"), end_of_word),
+            terminated(tag("LEFT SEMI JOIN"), end_of_word),
+            terminated(tag("RIGHT SEMI JOIN"), end_of_word),
+            terminated(tag("LEFT ANTI JOIN"), end_of_word),
+            terminated(tag("RIGHT ANTI JOIN"), end_of_word),
+        ));
+
+        // Special joins and GLOBAL variants
+        let special_joins = alt((
+            terminated(tag("ASOF JOIN"), end_of_word),
+            terminated(tag("LEFT ASOF JOIN"), end_of_word),
+            terminated(tag("PASTE JOIN"), end_of_word),
+            terminated(tag("GLOBAL INNER JOIN"), end_of_word),
+            terminated(tag("GLOBAL LEFT JOIN"), end_of_word),
+            terminated(tag("GLOBAL RIGHT JOIN"), end_of_word),
+            terminated(tag("GLOBAL FULL JOIN"), end_of_word),
+        ));
+
+        // Legacy and logical operators
+        let operators = alt((
+            terminated(tag("CROSS APPLY"), end_of_word),
+            terminated(tag("OUTER APPLY"), end_of_word),
+            terminated(tag("AND"), end_of_word),
+            terminated(tag("OR"), end_of_word),
             terminated(tag("XOR"), end_of_word),
-        ))(&uc_input);
+            terminated(tag("WHEN"), end_of_word),
+            terminated(tag("ELSE"), end_of_word),
+        ));
+
+        // Combine all parsers
+        let result: IResult<&str, &str> =
+            alt((standard_joins, specific_joins, special_joins, operators))(&uc_input);
+
         if let Ok((_, token)) = result {
             let final_word = token.split(' ').last().unwrap();
             let input_end_pos =

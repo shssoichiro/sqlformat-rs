@@ -321,6 +321,34 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_select_query_with_non_standard_join() {
+        let input = indoc!(
+            "
+            SELECT customer_id.from, COUNT(order_id) AS total FROM customers
+            INNER ANY JOIN orders ON customers.customer_id = orders.customer_id
+            LEFT
+            SEMI JOIN foo ON foo.id = customers.id
+            PASTE
+            JOIN bar
+            ;"
+        );
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              customer_id.from,
+              COUNT(order_id) AS total
+            FROM
+              customers
+              INNER ANY JOIN orders ON customers.customer_id = orders.customer_id
+              LEFT SEMI JOIN foo ON foo.id = customers.id
+              PASTE JOIN bar;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_select_query_with_different_comments() {
         let input = indoc!(
             "

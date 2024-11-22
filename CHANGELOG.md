@@ -1,3 +1,8 @@
+### Version 0.3.2
+
+- support ClickHouse/DuckDB join variants
+- handle double colons better
+
 ### Version 0.3.1
 
 - Allow latest regex version (#55)

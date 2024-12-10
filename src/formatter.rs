@@ -10,33 +10,43 @@ use crate::{FormatOptions, QueryParams};
 // -- fmt: on
 pub(crate) fn check_fmt_off(s: &str) -> Option<bool> {
     let mut state = 0;
-    let mut fmt_state = None;
 
+    const ON: bool = false;
+    const OFF: bool = true;
+
+    const NEXT: u32 = 1;
+    const STAY: u32 = 0;
+
+    //             SPACE                SPACE  SPACE      n
+    //              ┌┐                   ┌┐     ┌┐      ┌───────────► ON
+    //    -      -   ▼  f      m      t   ▼  :   ▼  o   │ N
+    // 0 ───► 1 ───► 2 ───► 3 ───► 4 ───► 5 ───► 6 ───► 7
+    //                  F      M      T             O   │ f       f
+    //                                                  └────► 8 ───► OFF
+    //                                                    F       F
     for c in s.bytes() {
-        state = match (state, c) {
-            (0 | 1, b'-') => state + 1,
-            (2, b' ') => state,
-            (2, b'f' | b'F') => state + 1,
-            (3, b'm' | b'M') => state + 1,
-            (4, b't' | b'T') => state + 1,
-            (5, b' ') => state,
-            (5, b':') => state + 1,
-            (6, b' ') => state,
-            (6, b'o' | b'O') => state + 1,
+        state += match (state, c) {
+            (0 | 1, b'-') => NEXT,
+            (2, b' ') => STAY,
+            (2, b'f' | b'F') => NEXT,
+            (3, b'm' | b'M') => NEXT,
+            (4, b't' | b'T') => NEXT,
+            (5, b' ') => STAY,
+            (5, b':') => NEXT,
+            (6, b' ') => STAY,
+            (6, b'o' | b'O') => NEXT,
             (7, b'n' | b'N') => {
-                fmt_state = Some(false);
-                break;
+                return Some(ON);
             }
-            (7, b'f' | b'F') => state + 1,
+            (7, b'f' | b'F') => NEXT,
             (8, b'f' | b'F') => {
-                fmt_state = Some(true);
-                break;
+                return Some(OFF);
             }
             _ => return None,
         };
     }
 
-    fmt_state
+    None
 }
 
 pub(crate) fn format(

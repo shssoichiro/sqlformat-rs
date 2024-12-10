@@ -1,4 +1,3 @@
-use regex::Regex;
 use std::borrow::Cow;
 
 use crate::indentation::Indentation;
@@ -7,14 +6,37 @@ use crate::params::Params;
 use crate::tokenizer::{Token, TokenKind};
 use crate::{FormatOptions, QueryParams};
 
-use once_cell::sync::Lazy;
-
-static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^(--|/\*)\s*fmt\s*:\s*(off|on)").unwrap());
-
+// -- fmt: off
+// -- fmt: on
 pub(crate) fn check_fmt_off(s: &str) -> Option<bool> {
-    RE.captures(s)?
-        .get(2)
-        .map(|matched| matched.as_str().eq_ignore_ascii_case("off"))
+    let mut state = 0;
+    let mut fmt_state = None;
+
+    for c in s.bytes() {
+        state = match (state, c) {
+            (0 | 1, b'-') => state + 1,
+            (2, b' ') => state,
+            (2, b'f' | b'F') => state + 1,
+            (3, b'm' | b'M') => state + 1,
+            (4, b't' | b'T') => state + 1,
+            (5, b' ') => state,
+            (5, b':') => state + 1,
+            (6, b' ') => state,
+            (6, b'o' | b'O') => state + 1,
+            (7, b'n' | b'N') => {
+                fmt_state = Some(false);
+                break;
+            }
+            (7, b'f' | b'F') => state + 1,
+            (8, b'f' | b'F') => {
+                fmt_state = Some(true);
+                break;
+            }
+            _ => return None,
+        };
+    }
+
+    fmt_state
 }
 
 pub(crate) fn format(

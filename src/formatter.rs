@@ -14,8 +14,8 @@ pub(crate) fn check_fmt_off(s: &str) -> Option<bool> {
     const ON: bool = false;
     const OFF: bool = true;
 
-    const NEXT: u32 = 1;
-    const STAY: u32 = 0;
+    const NEXT: u8 = 1;
+    const STAY: u8 = 0;
 
     //             SPACE                SPACE  SPACE      n
     //              ┌┐                   ┌┐     ┌┐      ┌───────────► ON

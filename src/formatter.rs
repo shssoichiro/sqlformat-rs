@@ -1,4 +1,3 @@
-use regex::Regex;
 use std::borrow::Cow;
 
 use crate::indentation::Indentation;
@@ -7,14 +6,47 @@ use crate::params::Params;
 use crate::tokenizer::{Token, TokenKind};
 use crate::{FormatOptions, QueryParams};
 
-use once_cell::sync::Lazy;
-
-static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^(--|/\*)\s*fmt\s*:\s*(off|on)").unwrap());
-
+// -- fmt: off
+// -- fmt: on
 pub(crate) fn check_fmt_off(s: &str) -> Option<bool> {
-    RE.captures(s)?
-        .get(2)
-        .map(|matched| matched.as_str().eq_ignore_ascii_case("off"))
+    let mut state = 0;
+
+    const ON: bool = false;
+    const OFF: bool = true;
+
+    const NEXT: u8 = 1;
+    const STAY: u8 = 0;
+
+    //             SPACE                SPACE  SPACE      n
+    //              ┌┐                   ┌┐     ┌┐      ┌───────────► ON
+    //    -      -   ▼  f      m      t   ▼  :   ▼  o   │ N
+    // 0 ───► 1 ───► 2 ───► 3 ───► 4 ───► 5 ───► 6 ───► 7
+    //                  F      M      T             O   │ f       f
+    //                                                  └────► 8 ───► OFF
+    //                                                    F       F
+    for c in s.bytes() {
+        state += match (state, c) {
+            (0 | 1, b'-') => NEXT,
+            (2, b' ') => STAY,
+            (2, b'f' | b'F') => NEXT,
+            (3, b'm' | b'M') => NEXT,
+            (4, b't' | b'T') => NEXT,
+            (5, b' ') => STAY,
+            (5, b':') => NEXT,
+            (6, b' ') => STAY,
+            (6, b'o' | b'O') => NEXT,
+            (7, b'n' | b'N') => {
+                return Some(ON);
+            }
+            (7, b'f' | b'F') => NEXT,
+            (8, b'f' | b'F') => {
+                return Some(OFF);
+            }
+            _ => return None,
+        };
+    }
+
+    None
 }
 
 pub(crate) fn format(

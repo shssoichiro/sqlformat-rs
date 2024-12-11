@@ -1,3 +1,7 @@
+### Version 0.3.3
+
+- Reduce binary size by removing regex dependency (#68)
+
 ### Version 0.3.2
 
 - support ClickHouse/DuckDB join variants

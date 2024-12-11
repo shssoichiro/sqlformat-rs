@@ -6,6 +6,8 @@
 #![forbid(unsafe_code)]
 // Maintains semver compatibility for older Rust versions
 #![allow(clippy::manual_strip)]
+// This lint is overly pedantic and annoying
+#![allow(clippy::needless_lifetimes)]
 
 mod formatter;
 mod indentation;
@@ -1710,14 +1712,14 @@ mod tests {
     #[test]
     fn it_recognizes_fmt_off() {
         let input = indoc!(
-            "SELECT              *     FROM   sometable        
+            "SELECT              *     FROM   sometable
             WHERE
             -- comment test here
                  -- fmt: off
                 first_key.second_key = 1
                                 -- json:first_key.second_key = 1
                       -- fmt: on
-                AND 
+                AND
                    -- fm1t: off
                 first_key.second_key = 1
                                     --  json:first_key.second_key = 1

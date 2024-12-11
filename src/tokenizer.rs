@@ -478,7 +478,7 @@ fn get_uc_words(input: &str, words: usize) -> String {
 
 fn get_top_level_reserved_token<'a>(
     last_reserved_top_level_token: Option<Token<'a>>,
-) -> impl FnMut(&'a str) -> IResult<&'a str, Token> {
+) -> impl FnMut(&'a str) -> IResult<&'a str, Token<'a>> {
     move |input: &'a str| {
         let uc_input: String = get_uc_words(input, 3);
 

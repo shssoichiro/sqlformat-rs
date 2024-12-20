@@ -217,13 +217,15 @@ fn get_string_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
 
 // Like above but it doesn't replace double quotes
 fn get_placeholder_string_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
-    alt((
-        ('`', take_till_escaping('`', &['`']), any).take(),
-        ('[', take_till_escaping(']', &[']']), any).take(),
-        ('"', take_till_escaping('"', &['\\']), any).take(),
-        ('\'', take_till_escaping('\'', &['\\']), any).take(),
-        ("N'", take_till_escaping('\'', &['\\']), any).take(),
-    ))
+    dispatch! {any;
+        '`'=>( take_till_escaping('`', &['`']), any).void(),
+        '['=>( take_till_escaping(']', &[']']), any).void(),
+        '"'=>( take_till_escaping('"', &['\\']), any).void(),
+        '\''=>( take_till_escaping('\'', &['\\']), any).void(),
+        'N' =>('\'', take_till_escaping('\'', &['\\']), any).void(),
+        _ => fail,
+    }
+    .take()
     .parse_next(input)
     .map(|token| Token {
         kind: TokenKind::String,

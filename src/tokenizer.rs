@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
 use winnow::ascii::{digit0, digit1, till_line_ending, Caseless};
-use winnow::combinator::{alt, eof, opt, peek, rest, terminated};
+use winnow::combinator::{alt, dispatch, eof, fail, opt, peek, rest, terminated};
 use winnow::error::ContextError;
 use winnow::error::ErrMode;
 use winnow::error::ErrorKind;
@@ -197,14 +197,16 @@ pub fn take_till_escaping<'a>(
 // 4. single quoted string using '' or \' to escape
 // 5. national character quoted string using N'' or N\' to escape
 fn get_string_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
-    alt((
-        ('`', take_till_escaping('`', &['`']), any).take(),
-        ('[', take_till_escaping(']', &[']']), any).take(),
-        ('"', take_till_escaping('"', &['"', '\\']), any).take(),
-        ('\'', take_till_escaping('\'', &['\'', '\\']), any).take(),
-        ("N'", take_till_escaping('\'', &['\'', '\\']), any).take(),
-        ("E'", take_till_escaping('\'', &['\'', '\\']), any).take(),
-    ))
+    dispatch! {any;
+        '`' => (take_till_escaping('`', &['`']), any).void(),
+        '[' => (take_till_escaping(']', &[']']), any).void(),
+        '"' => (take_till_escaping('"', &['"', '\\']), any).void(),
+        '\'' => (take_till_escaping('\'', &['\'', '\\']), any).void(),
+        'N' => ('\'', take_till_escaping('\'', &['\'', '\\']), any).void(),
+        'E' => ('\'', take_till_escaping('\'', &['\'', '\\']), any).void(),
+        _ => fail,
+    }
+    .take()
     .parse_next(input)
     .map(|token| Token {
         kind: TokenKind::String,

@@ -7,7 +7,7 @@ use winnow::error::ErrMode;
 use winnow::error::ErrorKind;
 use winnow::error::ParserError as _;
 use winnow::prelude::*;
-use winnow::stream::Stream as _;
+use winnow::stream::{ContainsToken as _, Stream as _};
 use winnow::token::{any, one_of, take, take_until, take_while};
 use winnow::PResult;
 
@@ -370,6 +370,10 @@ fn get_reserved_word_token<'a>(
         if token.value == "." {
             return Err(ErrMode::from_error_kind(input, ErrorKind::Slice));
         }
+    }
+
+    if !('a'..='z', 'A'..='Z', '$').contains_token(input.chars().next().unwrap_or('\0')) {
+        return Err(ErrMode::from_error_kind(input, ErrorKind::Slice));
     }
 
     alt((

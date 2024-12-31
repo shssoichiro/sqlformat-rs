@@ -184,16 +184,15 @@ pub fn take_till_escaping<'a, Error: ParseError<&'a str>>(
             let item = chars.next();
             let next = chars.peek().map(|item| item.1);
             match item {
-                Some(item) => {
+                Some((byte_pos, item)) => {
                     // escape?
-                    if escapes.contains(&item.1) && next.map(|n| n == desired).unwrap_or(false) {
+                    if escapes.contains(&item) && next.map(|n| n == desired).unwrap_or(false) {
                         // consume this and next char
                         chars.next();
                         continue;
                     }
 
-                    if item.1 == desired {
-                        let byte_pos = item.0;
+                    if item == desired {
                         return Ok((&input[byte_pos..], &input[..byte_pos]));
                     }
                 }

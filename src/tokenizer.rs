@@ -17,6 +17,10 @@ pub(crate) fn tokenize(mut input: &str, named_placeholders: bool) -> Vec<Token<'
     let mut last_reserved_token = None;
     let mut last_reserved_top_level_token = None;
 
+    if let Ok(Some(result)) = opt(get_whitespace_token).parse_next(&mut input) {
+        tokens.push(result);
+    }
+
     // Keep processing the string until it is empty
     while let Ok(result) = get_next_token(
         &mut input,
@@ -32,6 +36,10 @@ pub(crate) fn tokenize(mut input: &str, named_placeholders: bool) -> Vec<Token<'
         }
 
         tokens.push(result);
+
+        if let Ok(Some(result)) = opt(get_whitespace_token).parse_next(&mut input) {
+            tokens.push(result);
+        }
     }
     tokens
 }
@@ -95,7 +103,6 @@ fn get_next_token<'a>(
     named_placeholders: bool,
 ) -> PResult<Token<'a>> {
     alt((
-        get_whitespace_token,
         get_comment_token,
         get_string_token,
         get_open_paren_token,

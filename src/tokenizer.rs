@@ -94,25 +94,27 @@ fn get_next_token<'a>(
     last_reserved_top_level_token: Option<Token<'a>>,
     named_placeholders: bool,
 ) -> IResult<&'a str, Token<'a>> {
-    get_whitespace_token(input)
-        .or_else(|_| get_comment_token(input))
-        .or_else(|_| get_string_token(input))
-        .or_else(|_| get_open_paren_token(input))
-        .or_else(|_| get_close_paren_token(input))
-        .or_else(|_| get_number_token(input))
-        .or_else(|_| {
+    alt((
+        get_whitespace_token,
+        get_comment_token,
+        get_string_token,
+        get_open_paren_token,
+        get_close_paren_token,
+        get_number_token,
+        |input| {
             get_reserved_word_token(
                 input,
-                previous_token,
-                last_reserved_token,
-                last_reserved_top_level_token,
+                previous_token.clone(),
+                last_reserved_token.clone(),
+                last_reserved_top_level_token.clone(),
             )
-        })
-        .or_else(|_| get_double_colon_token(input))
-        .or_else(|_| get_operator_token(input))
-        .or_else(|_| get_placeholder_token(input, named_placeholders))
-        .or_else(|_| get_word_token(input))
-        .or_else(|_| get_any_other_char(input))
+        },
+        get_double_colon_token,
+        get_operator_token,
+        |input| get_placeholder_token(input, named_placeholders.clone()),
+        get_word_token,
+        get_any_other_char,
+    ))(input)
 }
 fn get_double_colon_token(input: &str) -> IResult<&str, Token<'_>> {
     tag("::")(input).map(|(input, token)| {

@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
 use winnow::ascii::{digit0, digit1, till_line_ending, Caseless};
-use winnow::combinator::{alt, eof, opt, peek, repeat, rest, terminated};
+use winnow::combinator::{alt, eof, opt, peek, rest, terminated};
 use winnow::error::ContextError;
 use winnow::error::ErrMode;
 use winnow::error::ErrorKind;
 use winnow::error::ParserError as _;
 use winnow::prelude::*;
 use winnow::stream::Stream as _;
-use winnow::token::{any, take, take_until, take_while};
+use winnow::token::{any, one_of, take, take_until, take_while};
 use winnow::PResult;
 
 pub(crate) fn tokenize(mut input: &str, named_placeholders: bool) -> Vec<Token<'_>> {
@@ -272,7 +272,7 @@ fn get_placeholder_token<'i>(input: &mut &'i str, named_placeholders: bool) -> P
 }
 
 fn get_indexed_placeholder_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
-    alt(((alt(('?', '$')), digit1).take(), "?"))
+    alt(((one_of(('?', '$')), digit1).take(), "?"))
         .parse_next(input)
         .map(|token| Token {
             kind: TokenKind::Placeholder,
@@ -295,7 +295,7 @@ fn get_indexed_placeholder_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> 
 
 fn get_ident_named_placeholder_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
     (
-        alt(('@', ':', '$')),
+        one_of(('@', ':', '$')),
         take_while(1.., |item: char| {
             item.is_alphanumeric() || item == '.' || item == '_' || item == '$'
         }),
@@ -313,7 +313,7 @@ fn get_ident_named_placeholder_token<'i>(input: &mut &'i str) -> PResult<Token<'
 }
 
 fn get_string_named_placeholder_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
-    (alt(('@', ':')), get_placeholder_string_token)
+    (one_of(('@', ':')), get_placeholder_string_token)
         .take()
         .parse_next(input)
         .map(|token| {
@@ -350,7 +350,7 @@ fn scientific_notation<'i>(input: &mut &'i str) -> PResult<&'i str> {
     (
         alt((decimal_number, digit1)),
         "e",
-        opt(alt(('-', '+'))),
+        opt(one_of(('-', '+'))),
         digit1,
     )
         .take()
@@ -1043,13 +1043,11 @@ fn get_word_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
 
 fn get_operator_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
     // Define the allowed operator characters
-    let allowed_operators = alt((
-        "!", "<", ">", "=", "|", ":", "-", "~", "*", "&", "@", "^", "?", "#", "/",
-    ));
+    let allowed_operators = (
+        '!', '<', '>', '=', '|', ':', '-', '~', '*', '&', '@', '^', '?', '#', '/',
+    );
 
-    repeat(2..=5, allowed_operators)
-        .map(|()| ())
-        .take()
+    take_while(2..=5, allowed_operators)
         .map(|token: &str| Token {
             kind: TokenKind::Operator,
             value: token,

@@ -1056,7 +1056,7 @@ fn get_operator_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
         .parse_next(input)
 }
 fn get_any_other_char<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
-    any.verify(|&token: &char| token != '\n' && token != '\r')
+    one_of(|token| token != '\n' && token != '\r')
         .take()
         .parse_next(input)
         .map(|token| Token {
@@ -1069,7 +1069,7 @@ fn get_any_other_char<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
 fn end_of_word<'i>(input: &mut &'i str) -> PResult<&'i str> {
     peek(alt((
         eof,
-        take(1usize).verify(|val: &str| !is_word_character(val.chars().next().unwrap())),
+        one_of(|val: char| !is_word_character(val)).take(),
     )))
     .parse_next(input)
 }

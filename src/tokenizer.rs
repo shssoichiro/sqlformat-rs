@@ -135,26 +135,16 @@ fn get_whitespace_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
 }
 
 fn get_comment_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
-    alt((get_line_comment_token, get_block_comment_token)).parse_next(input)
-}
-
-fn get_line_comment_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
-    (alt(("#", "--")), till_line_ending)
-        .take()
+    dispatch! {any;
+        '#' => till_line_ending.value(TokenKind::LineComment),
+        '-' => ('-', till_line_ending).value(TokenKind::LineComment),
+        '/' => ('*', alt((take_until(0.., "*/"), rest)), opt(take(2usize))).value(TokenKind::BlockComment),
+        _ => fail,
+    }
+        .with_taken()
         .parse_next(input)
-        .map(|token| Token {
-            kind: TokenKind::LineComment,
-            value: token,
-            key: None,
-        })
-}
-
-fn get_block_comment_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
-    ("/*", alt((take_until(0.., "*/"), rest)), opt(take(2usize)))
-        .take()
-        .parse_next(input)
-        .map(|token| Token {
-            kind: TokenKind::BlockComment,
+        .map(|(kind, token)| Token {
+            kind,
             value: token,
             key: None,
         })

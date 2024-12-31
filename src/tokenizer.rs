@@ -6,7 +6,7 @@ use nom::error::ParseError;
 use nom::error::{Error, ErrorKind};
 use nom::multi::{many0, many_m_n};
 use nom::sequence::{terminated, tuple};
-use nom::{AsChar, Err, IResult};
+use nom::{Err, IResult};
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
 
@@ -179,7 +179,7 @@ pub fn take_till_escaping<'a, Error: ParseError<&'a str>>(
     escapes: &'static [char],
 ) -> impl Fn(&'a str) -> IResult<&'a str, &'a str, Error> {
     move |input: &str| {
-        let mut chars = input.chars().enumerate().peekable();
+        let mut chars = input.char_indices().peekable();
         loop {
             let item = chars.next();
             let next = chars.peek().map(|item| item.1);
@@ -193,7 +193,7 @@ pub fn take_till_escaping<'a, Error: ParseError<&'a str>>(
                     }
 
                     if item.1 == desired {
-                        let byte_pos = input.chars().take(item.0).map(|c| c.len()).sum::<usize>();
+                        let byte_pos = item.0;
                         return Ok((&input[byte_pos..], &input[..byte_pos]));
                     }
                 }

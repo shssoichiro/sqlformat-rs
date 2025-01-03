@@ -5,7 +5,7 @@
 [![Version](https://img.shields.io/crates/v/sqlformat.svg)](https://crates.io/crates/sqlformat)
 [![Docs](https://docs.rs/sqlformat/badge.svg)](https://docs.rs/sqlformat)
 
-This crate is a port of https://github.com/kufii/sql-formatter-plus
+This crate is a port of [sql-formatter-plus](https://github.com/kufii/sql-formatter-plus)
 written in Rust. It is intended to be usable as a pure-Rust library
 for formatting SQL queries.
 

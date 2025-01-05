@@ -118,7 +118,7 @@ fn get_next_token<'a>(
         },
         get_double_colon_token,
         get_operator_token,
-        |input: &mut _| get_placeholder_token(input, named_placeholders.clone()),
+        |input: &mut _| get_placeholder_token(input, named_placeholders),
         get_word_token,
         get_any_other_char,
     ))

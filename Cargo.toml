@@ -13,8 +13,8 @@ keywords = ["sql"]
 categories = ["development-tools"]
 
 [dependencies]
+nom = "7.0.0"
 unicode_categories = "0.1.1"
-winnow = { version = "0.6.20", features = ["simd"] }
 
 [dev-dependencies]
 criterion = "0.4"

@@ -1,3 +1,7 @@
+### Version 0.3.4
+
+- Migrate from `nom` to `winnow`, provides about 30% performance improvement
+
 ### Version 0.3.3
 
 - Reduce binary size by removing regex dependency (#68)

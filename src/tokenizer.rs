@@ -1049,7 +1049,7 @@ fn get_word_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
 fn get_operator_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
     // Define the allowed operator characters
     let allowed_operators = (
-        '!', '<', '>', '=', '|', ':', '-', '~', '*', '&', '@', '^', '?', '#', '/',
+        '!', '<', '>', '=', '|', ':', '-', '~', '*', '&', '@', '^', '?', '#', '/', '%',
     );
 
     take_while(2..=5, allowed_operators)

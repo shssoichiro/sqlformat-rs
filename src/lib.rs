@@ -1799,7 +1799,7 @@ mod tests {
             "<>", "<", ">=", ">>=", ">>", ">^", "->>", "->", "-|-", "-", "+", "/", "=", "%", "?||",
             "?|", "?-|", "?-", "?#", "?&", "?", "@@@", "@@", "@>", "@?", "@-@", "@", "^@", "^",
             "|&>", "|>>", "|/", "|", "||/", "||", "~>=~", "~>~", "~<=~", "~<~", "~=", "~*", "~~*",
-            "~~", "~",
+            "~~", "~", "%", "<%", "%>", "<<%", "%>>", "<<->", "<->>", "<<<->", "<->>>",
         ];
 
         // Test each operator individually
@@ -1838,6 +1838,8 @@ mod tests {
   left |>& right,
   left <^ right,
   left >^ right,
+  left <% right,
+  left %> right,
   ?- left,
   left ?-| right,
   left ?|| right,
@@ -1864,6 +1866,8 @@ SELECT
   left |>& right,
   left <^ right,
   left >^ right,
+  left <% right,
+  left %> right,
   ?- left,
   left ?-| right,
   left ?|| right,

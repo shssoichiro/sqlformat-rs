@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
 use winnow::ascii::{digit0, digit1, till_line_ending, Caseless};
-use winnow::combinator::{alt, dispatch, eof, fail, opt, peek, rest, terminated};
+use winnow::combinator::{alt, dispatch, eof, fail, opt, peek, terminated};
 use winnow::error::ContextError;
 use winnow::error::ErrMode;
 use winnow::error::ErrorKind;
 use winnow::error::ParserError as _;
 use winnow::prelude::*;
 use winnow::stream::{ContainsToken as _, Stream as _};
-use winnow::token::{any, one_of, take, take_until, take_while};
+use winnow::token::{any, one_of, rest, take, take_until, take_while};
 use winnow::PResult;
 
 pub(crate) fn tokenize(mut input: &str, named_placeholders: bool) -> Vec<Token<'_>> {

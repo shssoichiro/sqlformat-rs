@@ -1,3 +1,8 @@
+### Version 0.3.5
+
+- Support pg_trgm operators
+- Remove usage of a deprecated `winnow` function
+
 ### Version 0.3.4
 
 - Migrate from `nom` to `winnow`, provides about 30% performance improvement

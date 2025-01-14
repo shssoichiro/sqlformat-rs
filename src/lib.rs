@@ -74,6 +74,7 @@ pub enum QueryParams {
 mod tests {
     use super::*;
     use indoc::indoc;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn it_uses_given_indent_config_for_indentation() {

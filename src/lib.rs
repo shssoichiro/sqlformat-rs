@@ -43,6 +43,10 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: None
     pub ignore_case_convert: Option<Vec<&'a str>>,
+    /// Keep the query in a single line
+    ///
+    /// Default: false
+    pub inline: bool,
 }
 
 impl<'a> Default for FormatOptions<'a> {
@@ -52,6 +56,7 @@ impl<'a> Default for FormatOptions<'a> {
             uppercase: None,
             lines_between_queries: 1,
             ignore_case_convert: None,
+            inline: false,
         }
     }
 }
@@ -545,6 +550,31 @@ mod tests {
         let input = "UPDATE customers SET total_orders = order_summary.total  FROM ( SELECT * FROM bank) AS order_summary";
         let options = FormatOptions::default();
         let expected = indoc!(
+            "
+            UPDATE
+              customers
+            SET
+              total_orders = order_summary.total
+            FROM
+              (
+                SELECT
+                  *
+                FROM
+                  bank
+              ) AS order_summary"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_update_query_with_as_part_inline() {
+        let options = FormatOptions {
+            inline: true,
+            ..Default::default()
+        };
+        let expected = "UPDATE customers SET total_orders = order_summary.total FROM ( SELECT * FROM bank ) AS order_summary";
+        let input = indoc!(
             "
             UPDATE
               customers

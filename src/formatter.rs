@@ -357,6 +357,10 @@ impl<'a> Formatter<'a> {
 
     fn add_new_line(&self, query: &mut String) {
         self.trim_spaces_end(query);
+        if self.options.inline {
+            query.push(' ');
+            return;
+        }
         if !query.ends_with('\n') {
             query.push('\n');
         }

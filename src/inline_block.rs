@@ -3,6 +3,7 @@ use crate::tokenizer::{Token, TokenKind};
 pub(crate) struct InlineBlock {
     level: usize,
     inline_max_length: usize,
+    newline_on_reserved: bool,
 }
 
 impl Default for InlineBlock {
@@ -10,15 +11,17 @@ impl Default for InlineBlock {
         InlineBlock {
             level: 0,
             inline_max_length: 50,
+            newline_on_reserved: true,
         }
     }
 }
 
 impl InlineBlock {
-    pub fn new(inline_max_length: usize) -> Self {
+    pub fn new(inline_max_length: usize, newline_on_reserved: bool) -> Self {
         InlineBlock {
             level: 0,
             inline_max_length,
+            newline_on_reserved,
         }
     }
 
@@ -70,9 +73,14 @@ impl InlineBlock {
 
     fn is_forbidden_token(&self, token: &Token<'_>) -> bool {
         token.kind == TokenKind::ReservedTopLevel
-            || token.kind == TokenKind::ReservedNewline
             || token.kind == TokenKind::LineComment
             || token.kind == TokenKind::BlockComment
             || token.value == ";"
+            || if self.newline_on_reserved {
+                token.kind == TokenKind::ReservedNewline
+            } else {
+                false
+            }
+            || token.value.to_lowercase() == "case"
     }
 }

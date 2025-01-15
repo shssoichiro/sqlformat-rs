@@ -51,6 +51,12 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: 50
     pub max_inline_block: usize,
+    /// Maximum lenght of inline arguments
+    ///
+    /// If unset keep every argument in a separate line
+    ///
+    /// Default: None
+    pub max_inline_arguments: Option<usize>,
 }
 
 impl<'a> Default for FormatOptions<'a> {
@@ -62,6 +68,7 @@ impl<'a> Default for FormatOptions<'a> {
             ignore_case_convert: None,
             inline: false,
             max_inline_block: 50,
+            max_inline_arguments: None,
         }
     }
 }
@@ -156,6 +163,65 @@ mod tests {
     }
 
     #[test]
+    fn keep_select_arguments_inline() {
+        let input = indoc! {
+            "
+            SELECT
+              a,
+              b,
+              c,
+              d,
+              e,
+              f,
+              g,
+              h
+            FROM foo;"
+        };
+        let options = FormatOptions {
+            max_inline_arguments: Some(50),
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            SELECT
+              a, b, c, d, e, f, g, h
+            FROM
+              foo;"
+        };
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn split_select_arguments_over_lines() {
+        let input = indoc! {
+            "
+            SELECT
+              a,
+              b,
+              c,
+              d,
+              e,
+              f,
+              g,
+              h
+            FROM foo;"
+        };
+        let options = FormatOptions {
+            max_inline_arguments: Some(20),
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            SELECT
+              a, b, c, d, e,
+              f, g, h
+            FROM
+              foo;"
+        };
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_select_with_complex_where() {
         let input = indoc!(
             "
@@ -178,6 +244,31 @@ mod tests {
                   OR Column4 >= NOW()
                 )
               );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_select_with_complex_where_inline() {
+        let input = indoc!(
+            "
+            SELECT * FROM foo WHERE Column1 = 'testing'
+            AND ( (Column2 = Column3 OR Column4 >= NOW()) );
+      "
+        );
+        let options = FormatOptions {
+            max_inline_arguments: Some(100),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              *
+            FROM
+              foo
+            WHERE
+              Column1 = 'testing' AND ((Column2 = Column3 OR Column4 >= NOW()));"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

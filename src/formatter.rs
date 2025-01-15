@@ -90,10 +90,12 @@ pub(crate) fn format(
             TokenKind::ReservedTopLevel => {
                 formatter.format_top_level_reserved_word(token, &mut formatted_query);
                 formatter.previous_reserved_word = Some(token);
+                formatter.previous_top_level_reserved_word = Some(token);
             }
             TokenKind::ReservedTopLevelNoIndent => {
                 formatter.format_top_level_reserved_word_no_indent(token, &mut formatted_query);
                 formatter.previous_reserved_word = Some(token);
+                formatter.previous_top_level_reserved_word = Some(token);
             }
             TokenKind::ReservedNewline => {
                 formatter.format_newline_reserved_word(token, &mut formatted_query);
@@ -140,11 +142,13 @@ pub(crate) fn format(
 struct Formatter<'a> {
     index: usize,
     previous_reserved_word: Option<&'a Token<'a>>,
+    previous_top_level_reserved_word: Option<&'a Token<'a>>,
     tokens: &'a [Token<'a>],
     params: Params<'a>,
     options: &'a FormatOptions<'a>,
     indentation: Indentation<'a>,
     inline_block: InlineBlock,
+    line_start: usize,
 }
 
 impl<'a> Formatter<'a> {
@@ -152,15 +156,20 @@ impl<'a> Formatter<'a> {
         Formatter {
             index: 0,
             previous_reserved_word: None,
+            previous_top_level_reserved_word: None,
             tokens,
             params: Params::new(params),
             options,
             indentation: Indentation::new(options),
-            inline_block: InlineBlock::new(options.max_inline_block),
+            inline_block: InlineBlock::new(
+                options.max_inline_block,
+                options.max_inline_arguments.is_none(),
+            ),
+            line_start: 0,
         }
     }
 
-    fn format_line_comment(&self, token: &Token<'_>, query: &mut String) {
+    fn format_line_comment(&mut self, token: &Token<'_>, query: &mut String) {
         let is_whitespace_followed_by_special_token =
             self.next_token(1).map_or(false, |current_token| {
                 current_token.kind == TokenKind::Whitespace
@@ -189,7 +198,7 @@ impl<'a> Formatter<'a> {
         self.trim_all_spaces_end(query);
         query.push_str("::");
     }
-    fn format_block_comment(&self, token: &Token<'_>, query: &mut String) {
+    fn format_block_comment(&mut self, token: &Token<'_>, query: &mut String) {
         self.add_new_line(query);
         query.push_str(&self.indent_comment(token.value));
         self.add_new_line(query);
@@ -210,8 +219,17 @@ impl<'a> Formatter<'a> {
         self.add_new_line(query);
     }
 
-    fn format_newline_reserved_word(&self, token: &Token<'_>, query: &mut String) {
-        self.add_new_line(query);
+    fn format_newline_reserved_word(&mut self, token: &Token<'_>, query: &mut String) {
+        if self
+            .options
+            .max_inline_arguments
+            .map_or(true, |limit| limit < self.line_len_next(query))
+        {
+            self.add_new_line(query);
+        } else {
+            self.trim_spaces_end(query);
+            query.push(' ');
+        }
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
         query.push(' ');
     }
@@ -303,7 +321,13 @@ impl<'a> Formatter<'a> {
 
         if self.inline_block.is_active() {
             self.inline_block.end();
-            self.format_with_space_after(&token, query);
+            if token.value.to_lowercase() == "end" {
+                self.trim_spaces_end(query);
+                query.push(' ');
+                self.format_with_spaces(&token, query);
+            } else {
+                self.format_with_space_after(&token, query);
+            }
         } else {
             self.indentation.decrease_block_level();
             self.add_new_line(query);
@@ -317,7 +341,7 @@ impl<'a> Formatter<'a> {
     }
 
     // Commas start a new line (unless within inline parentheses or SQL "LIMIT" clause)
-    fn format_comma(&self, token: &Token<'_>, query: &mut String) {
+    fn format_comma(&mut self, token: &Token<'_>, query: &mut String) {
         self.trim_spaces_end(query);
         query.push_str(token.value);
         query.push(' ');
@@ -329,6 +353,12 @@ impl<'a> Formatter<'a> {
             .previous_reserved_word
             .map(|word| word.value.to_lowercase() == "limit")
             .unwrap_or(false)
+        {
+            return;
+        }
+
+        if matches!((self.previous_top_level_reserved_word, self.options.max_inline_arguments),
+            (Some(word), Some(limit)) if word.value.to_lowercase() == "select" && limit > self.line_len_next(query))
         {
             return;
         }
@@ -355,7 +385,7 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    fn add_new_line(&self, query: &mut String) {
+    fn add_new_line(&mut self, query: &mut String) {
         self.trim_spaces_end(query);
         if self.options.inline {
             query.push(' ');
@@ -364,6 +394,7 @@ impl<'a> Formatter<'a> {
         if !query.ends_with('\n') {
             query.push('\n');
         }
+        self.line_start = query.len();
         query.push_str(&self.indentation.get_indent());
     }
 
@@ -448,6 +479,10 @@ impl<'a> Formatter<'a> {
         } else {
             None
         }
+    }
+
+    fn line_len_next(&self, query: &str) -> usize {
+        query.len() - self.line_start + self.next_token(1).map_or(0, |t| t.value.len())
     }
 
     fn format_no_change(&self, token: &Token<'_>, query: &mut String) {

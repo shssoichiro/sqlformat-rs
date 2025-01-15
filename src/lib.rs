@@ -57,6 +57,10 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: None
     pub max_inline_arguments: Option<usize>,
+    /// Inline the argument at the top level if they would fit a line
+    ///
+    /// Default: None
+    pub max_inline_top_level: Option<usize>,
 }
 
 impl<'a> Default for FormatOptions<'a> {
@@ -69,6 +73,7 @@ impl<'a> Default for FormatOptions<'a> {
             inline: false,
             max_inline_block: 50,
             max_inline_arguments: None,
+            max_inline_top_level: None,
         }
     }
 }
@@ -217,6 +222,35 @@ mod tests {
               f, g, h
             FROM
               foo;"
+        };
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn inline_arguments_when_possible() {
+        let input = indoc! {
+            "
+            SELECT
+              a,
+              b,
+              c,
+              d,
+              e,
+              f,
+              g,
+              h
+            FROM foo;"
+        };
+        let options = FormatOptions {
+            max_inline_arguments: Some(50),
+            max_inline_top_level: Some(20),
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            SELECT
+              a, b, c, d, e, f, g, h
+            FROM foo;"
         };
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }

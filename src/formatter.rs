@@ -209,7 +209,16 @@ impl<'a> Formatter<'a> {
         self.add_new_line(query);
         self.indentation.increase_top_level();
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
-        self.add_new_line(query);
+        let len = self.top_level_tokens_span();
+        if self
+            .options
+            .max_inline_top_level
+            .map_or(true, |limit| limit < len)
+        {
+            self.add_new_line(query);
+        } else {
+            query.push(' ');
+        }
     }
 
     fn format_top_level_reserved_word_no_indent(&mut self, token: &Token<'_>, query: &mut String) {
@@ -483,6 +492,16 @@ impl<'a> Formatter<'a> {
 
     fn line_len_next(&self, query: &str) -> usize {
         query.len() - self.line_start + self.next_token(1).map_or(0, |t| t.value.len())
+    }
+
+    fn top_level_tokens_span(&self) -> usize {
+        assert_eq!(self.tokens[self.index].kind, TokenKind::ReservedTopLevel);
+
+        self.tokens[self.index..]
+            .iter()
+            .skip(1)
+            .map(|token| token.value.len())
+            .sum()
     }
 
     fn format_no_change(&self, token: &Token<'_>, query: &mut String) {

@@ -2,11 +2,24 @@ use crate::tokenizer::{Token, TokenKind};
 
 pub(crate) struct InlineBlock {
     level: usize,
+    inline_max_length: usize,
+}
+
+impl Default for InlineBlock {
+    fn default() -> Self {
+        InlineBlock {
+            level: 0,
+            inline_max_length: 50,
+        }
+    }
 }
 
 impl InlineBlock {
-    pub fn new() -> Self {
-        InlineBlock { level: 0 }
+    pub fn new(inline_max_length: usize) -> Self {
+        InlineBlock {
+            level: 0,
+            inline_max_length,
+        }
     }
 
     pub fn begin_if_possible(&mut self, tokens: &[Token<'_>], index: usize) {
@@ -28,8 +41,6 @@ impl InlineBlock {
     }
 
     fn is_inline_block(&self, tokens: &[Token<'_>], index: usize) -> bool {
-        const INLINE_MAX_LENGTH: usize = 50;
-
         let mut length = 0;
         let mut level = 0;
 
@@ -37,7 +48,7 @@ impl InlineBlock {
             length += token.value.len();
 
             // Overran max length
-            if length > INLINE_MAX_LENGTH {
+            if length > self.inline_max_length {
                 return false;
             }
             if token.kind == TokenKind::OpenParen {

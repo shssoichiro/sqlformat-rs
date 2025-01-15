@@ -156,7 +156,7 @@ impl<'a> Formatter<'a> {
             params: Params::new(params),
             options,
             indentation: Indentation::new(options),
-            inline_block: InlineBlock::new(),
+            inline_block: InlineBlock::new(options.max_inline_block),
         }
     }
 

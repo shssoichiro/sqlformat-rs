@@ -47,6 +47,10 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: false
     pub inline: bool,
+    /// Maximum lenght of an inline block
+    ///
+    /// Default: 50
+    pub max_inline_block: usize,
 }
 
 impl<'a> Default for FormatOptions<'a> {
@@ -57,6 +61,7 @@ impl<'a> Default for FormatOptions<'a> {
             lines_between_queries: 1,
             ignore_case_convert: None,
             inline: false,
+            max_inline_block: 50,
         }
     }
 }
@@ -464,6 +469,33 @@ mod tests {
                     'amount',
                     'percentage'
                   )
+                FROM
+                  foo
+              );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_keep_long_parenthesized_lists_to_multiple_lines() {
+        let input = indoc!(
+            "
+            INSERT INTO some_table (id_product, id_shop, id_currency, id_country, id_registration) (
+            SELECT IF (dq.id_discounter_shopping = 2, dq.value, dq.value / 100),
+            IF (dq.id_discounter_shopping = 2, 'amount', 'percentage') FROM foo);"
+        );
+        let options = FormatOptions {
+            max_inline_block: 100,
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            INSERT INTO
+              some_table (id_product, id_shop, id_currency, id_country, id_registration) (
+                SELECT
+                  IF (dq.id_discounter_shopping = 2, dq.value, dq.value / 100),
+                  IF (dq.id_discounter_shopping = 2, 'amount', 'percentage')
                 FROM
                   foo
               );"

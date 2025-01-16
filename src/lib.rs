@@ -47,17 +47,17 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: false
     pub inline: bool,
-    /// Maximum lenght of an inline block
+    /// Maximum length of an inline block
     ///
     /// Default: 50
     pub max_inline_block: usize,
-    /// Maximum lenght of inline arguments
+    /// Maximum length of inline arguments
     ///
     /// If unset keep every argument in a separate line
     ///
     /// Default: None
     pub max_inline_arguments: Option<usize>,
-    /// Inline the argument at the top level if they would fit a line
+    /// Inline the argument at the top level if they would fit a line of this length
     ///
     /// Default: None
     pub max_inline_top_level: Option<usize>,

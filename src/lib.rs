@@ -197,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn split_select_arguments_over_lines() {
+    fn split_select_arguments_inline_top_level() {
         let input = indoc! {
             "
             SELECT
@@ -212,16 +212,14 @@ mod tests {
             FROM foo;"
         };
         let options = FormatOptions {
-            max_inline_arguments: Some(20),
+            max_inline_arguments: Some(50),
+            max_inline_top_level: Some(50),
             ..Default::default()
         };
         let expected = indoc! {
             "
-            SELECT
-              a, b, c, d, e,
-              f, g, h
-            FROM
-              foo;"
+            SELECT a, b, c, d, e, f, g, h
+            FROM foo;"
         };
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
@@ -1515,6 +1513,31 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_case_when_inside_select_inlined_top_level() {
+        let input =
+            "SELECT foo, bar, CASE baz WHEN 'one' THEN 1 WHEN 'two' THEN 2 ELSE 3 END FROM table";
+        let options = FormatOptions {
+            max_inline_top_level: Some(50),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              foo,
+              bar,
+              CASE
+                baz
+                WHEN 'one' THEN 1
+                WHEN 'two' THEN 2
+                ELSE 3
+              END
+            FROM table"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_case_when_with_an_expression() {
         let input = "CASE toString(getNumber()) WHEN 'one' THEN 1 WHEN 'two' THEN 2 WHEN 'three' THEN 3 ELSE 4 END;";
         let options = FormatOptions::default();
@@ -1955,6 +1978,33 @@ mod tests {
               and colb = 3"
         );
 
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn format_nested_select() {
+        let input = "WITH a AS ( SELECT a, b, c FROM t WHERE a > 100 ), aa AS ( SELECT field FROM table ) SELECT b, field FROM a, aa;";
+        let options = FormatOptions {
+            max_inline_arguments: Some(10),
+            max_inline_top_level: Some(9),
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            WITH a AS (
+              SELECT a, b, c
+              FROM t
+              WHERE a > 100
+            ),
+            aa AS (
+              SELECT field
+              FROM table
+            )
+            SELECT
+              b,
+              field
+            FROM a, aa;"
+        };
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 

@@ -148,7 +148,8 @@ struct Formatter<'a> {
     options: &'a FormatOptions<'a>,
     indentation: Indentation<'a>,
     inline_block: InlineBlock,
-    line_start: usize,
+    span_len: usize,
+    block_level: usize,
 }
 
 impl<'a> Formatter<'a> {
@@ -165,7 +166,8 @@ impl<'a> Formatter<'a> {
                 options.max_inline_block,
                 options.max_inline_arguments.is_none(),
             ),
-            line_start: 0,
+            span_len: 0,
+            block_level: 0,
         }
     }
 
@@ -209,11 +211,11 @@ impl<'a> Formatter<'a> {
         self.add_new_line(query);
         self.indentation.increase_top_level();
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
-        let len = self.top_level_tokens_span();
+        self.span_len = self.top_level_tokens_span();
         if self
             .options
             .max_inline_top_level
-            .map_or(true, |limit| limit < len)
+            .map_or(true, |limit| limit < self.span_len)
         {
             self.add_new_line(query);
         } else {
@@ -232,7 +234,7 @@ impl<'a> Formatter<'a> {
         if self
             .options
             .max_inline_arguments
-            .map_or(true, |limit| limit < self.line_len_next(query))
+            .map_or(true, |limit| limit < self.span_len)
         {
             self.add_new_line(query);
         } else {
@@ -256,6 +258,7 @@ impl<'a> Formatter<'a> {
 
     // Opening parentheses increase the block indent level and start a new line
     fn format_opening_parentheses(&mut self, token: &Token<'_>, query: &mut String) {
+        self.block_level += 1;
         const PRESERVE_WHITESPACE_FOR: &[TokenKind] = &[
             TokenKind::Whitespace,
             TokenKind::OpenParen,
@@ -304,6 +307,7 @@ impl<'a> Formatter<'a> {
 
     // Closing parentheses decrease the block indent level
     fn format_closing_parentheses(&mut self, token: &Token<'_>, query: &mut String) {
+        self.block_level = self.block_level.saturating_sub(1);
         let mut token = token.clone();
         let value = match (
             self.options.uppercase,
@@ -367,7 +371,7 @@ impl<'a> Formatter<'a> {
         }
 
         if matches!((self.previous_top_level_reserved_word, self.options.max_inline_arguments),
-            (Some(word), Some(limit)) if word.value.to_lowercase() == "select" && limit > self.line_len_next(query))
+            (Some(word), Some(limit)) if ["select", "from"].contains(&word.value.to_lowercase().as_str()) && limit > self.span_len)
         {
             return;
         }
@@ -394,7 +398,7 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    fn add_new_line(&mut self, query: &mut String) {
+    fn add_new_line(&self, query: &mut String) {
         self.trim_spaces_end(query);
         if self.options.inline {
             query.push(' ');
@@ -403,7 +407,6 @@ impl<'a> Formatter<'a> {
         if !query.ends_with('\n') {
             query.push('\n');
         }
-        self.line_start = query.len();
         query.push_str(&self.indentation.get_indent());
     }
 
@@ -490,16 +493,25 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    fn line_len_next(&self, query: &str) -> usize {
-        query.len() - self.line_start + self.next_token(1).map_or(0, |t| t.value.len())
-    }
-
     fn top_level_tokens_span(&self) -> usize {
         assert_eq!(self.tokens[self.index].kind, TokenKind::ReservedTopLevel);
+        let mut block_level = self.block_level;
 
         self.tokens[self.index..]
             .iter()
             .skip(1)
+            .take_while(|token| match token.kind {
+                TokenKind::OpenParen => {
+                    block_level += 1;
+                    true
+                }
+                TokenKind::CloseParen => {
+                    block_level = block_level.saturating_sub(1);
+                    block_level > self.block_level
+                }
+                TokenKind::ReservedTopLevel => false,
+                _ => true,
+            })
             .map(|token| token.value.len())
             .sum()
     }

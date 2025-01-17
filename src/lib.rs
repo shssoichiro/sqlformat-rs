@@ -43,6 +43,24 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: None
     pub ignore_case_convert: Option<Vec<&'a str>>,
+    /// Keep the query in a single line
+    ///
+    /// Default: false
+    pub inline: bool,
+    /// Maximum length of an inline block
+    ///
+    /// Default: 50
+    pub max_inline_block: usize,
+    /// Maximum length of inline arguments
+    ///
+    /// If unset keep every argument in a separate line
+    ///
+    /// Default: None
+    pub max_inline_arguments: Option<usize>,
+    /// Inline the argument at the top level if they would fit a line of this length
+    ///
+    /// Default: None
+    pub max_inline_top_level: Option<usize>,
 }
 
 impl<'a> Default for FormatOptions<'a> {
@@ -52,6 +70,10 @@ impl<'a> Default for FormatOptions<'a> {
             uppercase: None,
             lines_between_queries: 1,
             ignore_case_convert: None,
+            inline: false,
+            max_inline_block: 50,
+            max_inline_arguments: None,
+            max_inline_top_level: None,
         }
     }
 }
@@ -74,6 +96,7 @@ pub enum QueryParams {
 mod tests {
     use super::*;
     use indoc::indoc;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn it_uses_given_indent_config_for_indentation() {
@@ -145,6 +168,94 @@ mod tests {
     }
 
     #[test]
+    fn keep_select_arguments_inline() {
+        let input = indoc! {
+            "
+            SELECT
+              a,
+              b,
+              c,
+              d,
+              e,
+              f,
+              g,
+              h
+            FROM foo;"
+        };
+        let options = FormatOptions {
+            max_inline_arguments: Some(50),
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            SELECT
+              a, b, c, d, e, f, g, h
+            FROM
+              foo;"
+        };
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn split_select_arguments_over_lines() {
+        let input = indoc! {
+            "
+            SELECT
+              a,
+              b,
+              c,
+              d,
+              e,
+              f,
+              g,
+              h
+            FROM foo;"
+        };
+        let options = FormatOptions {
+            max_inline_arguments: Some(20),
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            SELECT
+              a, b, c, d, e,
+              f, g, h
+            FROM
+              foo;"
+        };
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn inline_arguments_when_possible() {
+        let input = indoc! {
+            "
+            SELECT
+              a,
+              b,
+              c,
+              d,
+              e,
+              f,
+              g,
+              h
+            FROM foo;"
+        };
+        let options = FormatOptions {
+            max_inline_arguments: Some(50),
+            max_inline_top_level: Some(20),
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            SELECT
+              a, b, c, d, e, f, g, h
+            FROM foo;"
+        };
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_select_with_complex_where() {
         let input = indoc!(
             "
@@ -167,6 +278,31 @@ mod tests {
                   OR Column4 >= NOW()
                 )
               );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_select_with_complex_where_inline() {
+        let input = indoc!(
+            "
+            SELECT * FROM foo WHERE Column1 = 'testing'
+            AND ( (Column2 = Column3 OR Column4 >= NOW()) );
+      "
+        );
+        let options = FormatOptions {
+            max_inline_arguments: Some(100),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              *
+            FROM
+              foo
+            WHERE
+              Column1 = 'testing' AND ((Column2 = Column3 OR Column4 >= NOW()));"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
@@ -467,6 +603,33 @@ mod tests {
     }
 
     #[test]
+    fn it_keep_long_parenthesized_lists_to_multiple_lines() {
+        let input = indoc!(
+            "
+            INSERT INTO some_table (id_product, id_shop, id_currency, id_country, id_registration) (
+            SELECT IF (dq.id_discounter_shopping = 2, dq.value, dq.value / 100),
+            IF (dq.id_discounter_shopping = 2, 'amount', 'percentage') FROM foo);"
+        );
+        let options = FormatOptions {
+            max_inline_block: 100,
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            INSERT INTO
+              some_table (id_product, id_shop, id_currency, id_country, id_registration) (
+                SELECT
+                  IF (dq.id_discounter_shopping = 2, dq.value, dq.value / 100),
+                  IF (dq.id_discounter_shopping = 2, 'amount', 'percentage')
+                FROM
+                  foo
+              );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_simple_update_query() {
         let input = "UPDATE Customers SET ContactName='Alfred Schmidt', City='Hamburg' WHERE CustomerName='Alfreds Futterkiste';";
         let options = FormatOptions::default();
@@ -544,6 +707,31 @@ mod tests {
         let input = "UPDATE customers SET total_orders = order_summary.total  FROM ( SELECT * FROM bank) AS order_summary";
         let options = FormatOptions::default();
         let expected = indoc!(
+            "
+            UPDATE
+              customers
+            SET
+              total_orders = order_summary.total
+            FROM
+              (
+                SELECT
+                  *
+                FROM
+                  bank
+              ) AS order_summary"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_update_query_with_as_part_inline() {
+        let options = FormatOptions {
+            inline: true,
+            ..Default::default()
+        };
+        let expected = "UPDATE customers SET total_orders = order_summary.total FROM ( SELECT * FROM bank ) AS order_summary";
+        let input = indoc!(
             "
             UPDATE
               customers

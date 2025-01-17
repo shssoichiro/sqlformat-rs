@@ -19,6 +19,7 @@ winnow = { version = "0.6.20", features = ["simd"] }
 [dev-dependencies]
 criterion = "0.4"
 indoc = "2.0"
+pretty_assertions = "1.4.1"
 
 [[bench]]
 name = "bench"

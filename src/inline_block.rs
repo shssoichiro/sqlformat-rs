@@ -81,6 +81,6 @@ impl InlineBlock {
             } else {
                 false
             }
-            || token.value.to_lowercase() == "case"
+            || ["case", "end"].contains(&token.value.to_lowercase().as_str())
     }
 }

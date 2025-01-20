@@ -1991,7 +1991,8 @@ mod tests {
         };
         let expected = indoc! {
             "
-            WITH a AS (
+            WITH
+            a AS (
               SELECT a, b, c
               FROM t
               WHERE a > 100

@@ -210,10 +210,12 @@ impl<'a> Formatter<'a> {
         self.add_new_line(query);
         self.indentation.increase_top_level(span_len);
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
-        if self
-            .options
-            .max_inline_top_level
-            .map_or(true, |limit| limit < span_len)
+        if !(!["select", "from"].contains(&token.value.to_lowercase().as_str())
+            && self.options.inline_first_top_level)
+            && self
+                .options
+                .max_inline_top_level
+                .map_or(true, |limit| limit < span_len)
         {
             self.add_new_line(query);
         } else {

@@ -148,7 +148,6 @@ struct Formatter<'a> {
     options: &'a FormatOptions<'a>,
     indentation: Indentation<'a>,
     inline_block: InlineBlock,
-    span_len: usize,
     block_level: usize,
 }
 
@@ -166,7 +165,6 @@ impl<'a> Formatter<'a> {
                 options.max_inline_block,
                 options.max_inline_arguments.is_none(),
             ),
-            span_len: 0,
             block_level: 0,
         }
     }
@@ -207,15 +205,15 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_top_level_reserved_word(&mut self, token: &Token<'_>, query: &mut String) {
+        let span_len = self.top_level_tokens_span();
         self.indentation.decrease_top_level();
         self.add_new_line(query);
-        self.indentation.increase_top_level();
+        self.indentation.increase_top_level(span_len);
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
-        self.span_len = self.top_level_tokens_span();
         if self
             .options
             .max_inline_top_level
-            .map_or(true, |limit| limit < self.span_len)
+            .map_or(true, |limit| limit < span_len)
         {
             self.add_new_line(query);
         } else {
@@ -234,7 +232,7 @@ impl<'a> Formatter<'a> {
         if self
             .options
             .max_inline_arguments
-            .map_or(true, |limit| limit < self.span_len)
+            .map_or(true, |limit| limit < self.indentation.top_level_span())
         {
             self.add_new_line(query);
         } else {
@@ -371,7 +369,8 @@ impl<'a> Formatter<'a> {
         }
 
         if matches!((self.previous_top_level_reserved_word, self.options.max_inline_arguments),
-            (Some(word), Some(limit)) if ["select", "from"].contains(&word.value.to_lowercase().as_str()) && limit > self.span_len)
+            (Some(word), Some(limit)) if ["select", "from"].contains(&word.value.to_lowercase().as_str()) &&
+                limit > self.indentation.top_level_span())
         {
             return;
         }
@@ -509,7 +508,7 @@ impl<'a> Formatter<'a> {
                     block_level = block_level.saturating_sub(1);
                     block_level > self.block_level
                 }
-                TokenKind::ReservedTopLevel => false,
+                TokenKind::ReservedTopLevel => block_level != self.block_level,
                 _ => true,
             })
             .map(|token| token.value.len())

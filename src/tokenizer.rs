@@ -547,9 +547,24 @@ fn get_newline_reserved_token<'a>(
             terminated("ELSE", end_of_word),
         ));
 
+        let alter_table_actions = alt((
+            terminated("ADD", end_of_word),
+            terminated("DROP", end_of_word),
+            terminated("ALTER", end_of_word),
+            terminated("VALIDATE", end_of_word),
+            terminated("ENABLE", end_of_word),
+            terminated("DISABLE", end_of_word),
+        ));
+
         // Combine all parsers
-        let result: Result<&str> = alt((standard_joins, specific_joins, special_joins, operators))
-            .parse_next(&mut uc_input);
+        let result: Result<&str> = alt((
+            standard_joins,
+            specific_joins,
+            special_joins,
+            operators,
+            alter_table_actions,
+        ))
+        .parse_next(&mut uc_input);
 
         if let Ok(token) = result {
             let final_word = token.split(' ').last().unwrap();

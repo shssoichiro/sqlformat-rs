@@ -594,6 +594,7 @@ fn get_top_level_reserved_token_no_indent<'i>(input: &mut &'i str) -> PResult<To
         terminated("MINUS", end_of_word),
         terminated("UNION", end_of_word),
         terminated("UNION ALL", end_of_word),
+        terminated("WITH", end_of_word),
         terminated("$$", end_of_word),
     ))
     .parse_next(&mut uc_input);
@@ -987,7 +988,6 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
 
         'W' => alt((
             terminated("WHEN", end_of_word),
-            terminated("WITH", end_of_word),
             terminated("WORK", end_of_word),
             terminated("WRITE", end_of_word),
         ))

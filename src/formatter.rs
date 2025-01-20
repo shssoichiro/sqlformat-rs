@@ -493,7 +493,6 @@ impl<'a> Formatter<'a> {
     }
 
     fn top_level_tokens_span(&self) -> usize {
-        assert_eq!(self.tokens[self.index].kind, TokenKind::ReservedTopLevel);
         let mut block_level = self.block_level;
 
         self.tokens[self.index..]
@@ -508,7 +507,9 @@ impl<'a> Formatter<'a> {
                     block_level = block_level.saturating_sub(1);
                     block_level > self.block_level
                 }
-                TokenKind::ReservedTopLevel => block_level != self.block_level,
+                TokenKind::ReservedTopLevel | TokenKind::ReservedTopLevelNoIndent => {
+                    block_level != self.block_level
+                }
                 _ => true,
             })
             .map(|token| token.value.len())

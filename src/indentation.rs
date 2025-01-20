@@ -3,6 +3,7 @@ use crate::{FormatOptions, Indent};
 pub(crate) struct Indentation<'a> {
     options: &'a FormatOptions<'a>,
     indent_types: Vec<IndentType>,
+    top_level_span: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,6 +17,7 @@ impl<'a> Indentation<'a> {
         Indentation {
             options,
             indent_types: Vec::new(),
+            top_level_span: Vec::new(),
         }
     }
 
@@ -28,8 +30,9 @@ impl<'a> Indentation<'a> {
         }
     }
 
-    pub fn increase_top_level(&mut self) {
+    pub fn increase_top_level(&mut self, span: usize) {
         self.indent_types.push(IndentType::TopLevel);
+        self.top_level_span.push(span);
     }
 
     pub fn increase_block_level(&mut self) {
@@ -39,6 +42,7 @@ impl<'a> Indentation<'a> {
     pub fn decrease_top_level(&mut self) {
         if self.indent_types.last() == Some(&IndentType::TopLevel) {
             self.indent_types.pop();
+            self.top_level_span.pop();
         }
     }
 
@@ -53,5 +57,10 @@ impl<'a> Indentation<'a> {
 
     pub fn reset_indentation(&mut self) {
         self.indent_types.clear();
+        self.top_level_span.clear();
+    }
+
+    pub fn top_level_span(&self) -> usize {
+        self.top_level_span.last().map_or(0, |span| *span)
     }
 }

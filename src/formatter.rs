@@ -297,8 +297,9 @@ impl<'a> Formatter<'a> {
 
         self.inline_block.begin_if_possible(self.tokens, self.index);
 
+        self.indentation.increase_block_level();
+
         if !self.inline_block.is_active() {
-            self.indentation.increase_block_level();
             self.add_new_line(query);
         }
     }
@@ -330,6 +331,8 @@ impl<'a> Formatter<'a> {
 
         token.value = &value;
 
+        self.indentation.decrease_block_level();
+
         if self.inline_block.is_active() {
             self.inline_block.end();
             if token.value.to_lowercase() == "end" {
@@ -340,7 +343,6 @@ impl<'a> Formatter<'a> {
                 self.format_with_space_after(&token, query);
             }
         } else {
-            self.indentation.decrease_block_level();
             self.add_new_line(query);
             self.format_with_spaces(&token, query);
         }

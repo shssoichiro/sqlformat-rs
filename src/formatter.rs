@@ -101,6 +101,10 @@ pub(crate) fn format(
                 formatter.format_newline_reserved_word(token, &mut formatted_query);
                 formatter.previous_reserved_word = Some(token);
             }
+            TokenKind::Join => {
+                formatter.format_newline_reserved_word(token, &mut formatted_query);
+                formatter.previous_reserved_word = Some(token);
+            }
             TokenKind::Reserved => {
                 formatter.format_with_spaces(token, &mut formatted_query);
                 formatter.previous_reserved_word = Some(token);
@@ -210,8 +214,9 @@ impl<'a> Formatter<'a> {
         self.add_new_line(query);
         self.indentation.increase_top_level(span_len);
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
-        if !(!["select", "from"].contains(&token.value.to_lowercase().as_str())
-            && self.options.inline_first_top_level)
+        let new_line = ["select", "from"].contains(&token.value.to_lowercase().as_str())
+            || !self.options.inline_first_top_level;
+        if new_line
             && self
                 .options
                 .max_inline_top_level

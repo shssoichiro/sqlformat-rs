@@ -101,6 +101,10 @@ pub(crate) fn format(
                 formatter.format_newline_reserved_word(token, &mut formatted_query);
                 formatter.previous_reserved_word = Some(token);
             }
+            TokenKind::Join => {
+                formatter.format_newline_reserved_word(token, &mut formatted_query);
+                formatter.previous_reserved_word = Some(token);
+            }
             TokenKind::Reserved => {
                 formatter.format_with_spaces(token, &mut formatted_query);
                 formatter.previous_reserved_word = Some(token);

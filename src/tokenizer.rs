@@ -446,6 +446,8 @@ fn get_top_level_reserved_token<'a>(
 
             'S' => alt((
                 terminated("SELECT", end_of_word),
+                terminated("SELECT DISTINCT", end_of_word),
+                terminated("SELECT ALL", end_of_word),
                 terminated("SET CURRENT SCHEMA", end_of_word),
                 terminated("SET SCHEMA", end_of_word),
                 terminated("SET", end_of_word),

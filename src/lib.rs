@@ -61,6 +61,10 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: None
     pub max_inline_top_level: Option<usize>,
+    /// Inline the first top level argument
+    ///
+    /// Default: false
+    pub inline_first_top_level: bool,
 }
 
 impl<'a> Default for FormatOptions<'a> {
@@ -74,6 +78,7 @@ impl<'a> Default for FormatOptions<'a> {
             max_inline_block: 50,
             max_inline_arguments: None,
             max_inline_top_level: None,
+            inline_first_top_level: false,
         }
     }
 }
@@ -301,6 +306,34 @@ mod tests {
               foo
             WHERE
               Column1 = 'testing' AND ((Column2 = Column3 OR Column4 >= NOW()));"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_select_with_complex_where_top_level_inline() {
+        let input = indoc!(
+            "
+            SELECT * FROM foo, bar, baz WHERE Column1 = 'testing'
+            AND ( (Column2 = Column3 OR Column4 >= NOW()) );
+      "
+        );
+        let options = FormatOptions {
+            inline_first_top_level: true,
+            max_inline_top_level: Some(10),
+            max_inline_arguments: Some(20),
+            max_inline_block: 50,
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT *
+            FROM
+              foo, bar, baz
+            WHERE Column1 = 'testing'
+              AND ((Column2 = Column3
+                  OR Column4 >= NOW()));"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

@@ -14,7 +14,7 @@ categories = ["development-tools"]
 
 [dependencies]
 unicode_categories = "0.1.1"
-winnow = { version = "0.6.26", features = ["simd"] }
+winnow = { version = "0.7.0", features = ["simd"] }
 
 [dev-dependencies]
 criterion = "0.4"

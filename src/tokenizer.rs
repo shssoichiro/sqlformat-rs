@@ -159,7 +159,7 @@ fn get_comment_token<'i>(input: &mut &'i str) -> ModalResult<Token<'i>> {
 pub fn take_till_escaping<'a>(
     desired: char,
     escapes: &'static [char],
-) -> impl Parser<&'a str, &'a str, ContextError> {
+) -> impl ModalParser<&'a str, &'a str, ContextError> {
     move |input: &mut &'a str| {
         let mut chars = input.char_indices().peekable();
         loop {
@@ -399,7 +399,7 @@ fn get_uc_words(input: &str, words: usize) -> String {
 
 fn get_top_level_reserved_token<'a>(
     last_reserved_top_level_token: Option<Token<'a>>,
-) -> impl Parser<&'a str, Token<'a>, ContextError> {
+) -> impl ModalParser<&'a str, Token<'a>, ContextError> {
     move |input: &mut &'a str| {
         let uc_input: String = get_uc_words(input, 3);
         let mut uc_input = uc_input.as_str();
@@ -496,7 +496,7 @@ fn get_top_level_reserved_token<'a>(
 
 fn get_newline_reserved_token<'a>(
     last_reserved_token: Option<Token<'a>>,
-) -> impl Parser<&'a str, Token<'a>, ContextError> {
+) -> impl ModalParser<&'a str, Token<'a>, ContextError> {
     move |input: &mut &'a str| {
         let uc_input: String = get_uc_words(input, 3);
         let mut uc_input = uc_input.as_str();

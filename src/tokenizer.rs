@@ -3,13 +3,10 @@ use unicode_categories::UnicodeCategories;
 use winnow::ascii::{digit0, digit1, till_line_ending, Caseless};
 use winnow::combinator::{alt, dispatch, eof, fail, opt, peek, terminated};
 use winnow::error::ContextError;
-use winnow::error::ErrMode;
-use winnow::error::ErrorKind;
-use winnow::error::ParserError as _;
+use winnow::error::ParserError;
 use winnow::prelude::*;
-use winnow::stream::{ContainsToken as _, Stream as _};
 use winnow::token::{any, one_of, rest, take, take_until, take_while};
-use winnow::PResult;
+use winnow::Result;
 
 pub(crate) fn tokenize(mut input: &str, named_placeholders: bool) -> Vec<Token<'_>> {
     let mut tokens: Vec<Token> = Vec::new();
@@ -101,7 +98,7 @@ fn get_next_token<'a>(
     last_reserved_token: Option<Token<'a>>,
     last_reserved_top_level_token: Option<Token<'a>>,
     named_placeholders: bool,
-) -> PResult<Token<'a>> {
+) -> Result<Token<'a>> {
     alt((
         get_comment_token,
         get_string_token,
@@ -124,14 +121,14 @@ fn get_next_token<'a>(
     ))
     .parse_next(input)
 }
-fn get_double_colon_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_double_colon_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     "::".parse_next(input).map(|token| Token {
         kind: TokenKind::DoubleColon,
         value: token,
         key: None,
     })
 }
-fn get_whitespace_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_whitespace_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     take_while(1.., char::is_whitespace)
         .parse_next(input)
         .map(|token| Token {
@@ -141,7 +138,7 @@ fn get_whitespace_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
         })
 }
 
-fn get_comment_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_comment_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     dispatch! {any;
         '#' => till_line_ending.value(TokenKind::LineComment),
         '-' => ('-', till_line_ending).value(TokenKind::LineComment),
@@ -193,7 +190,7 @@ pub fn take_till_escaping<'a>(
 // 3. double quoted string using "" or \" to escape
 // 4. single quoted string using '' or \' to escape
 // 5. national character quoted string using N'' or N\' to escape
-fn get_string_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     dispatch! {any;
         '`' => (take_till_escaping('`', &['`']), any).void(),
         '[' => (take_till_escaping(']', &[']']), any).void(),
@@ -213,7 +210,7 @@ fn get_string_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
 }
 
 // Like above but it doesn't replace double quotes
-fn get_placeholder_string_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_placeholder_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     dispatch! {any;
         '`'=>( take_till_escaping('`', &['`']), any).void(),
         '['=>( take_till_escaping(']', &[']']), any).void(),
@@ -231,7 +228,7 @@ fn get_placeholder_string_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
     })
 }
 
-fn get_open_paren_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_open_paren_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     alt(("(", terminated(Caseless("CASE"), end_of_word)))
         .parse_next(input)
         .map(|token| Token {
@@ -241,7 +238,7 @@ fn get_open_paren_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
         })
 }
 
-fn get_close_paren_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_close_paren_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     alt((")", terminated(Caseless("END"), end_of_word)))
         .parse_next(input)
         .map(|token| Token {
@@ -251,7 +248,7 @@ fn get_close_paren_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
         })
 }
 
-fn get_placeholder_token<'i>(input: &mut &'i str, named_placeholders: bool) -> PResult<Token<'i>> {
+fn get_placeholder_token<'i>(input: &mut &'i str, named_placeholders: bool) -> Result<Token<'i>> {
     // The precedence changes based on 'named_placeholders' but not the exhaustiveness.
     // This is to ensure the formatting is the same even if parameters aren't used.
 
@@ -272,7 +269,7 @@ fn get_placeholder_token<'i>(input: &mut &'i str, named_placeholders: bool) -> P
     }
 }
 
-fn get_indexed_placeholder_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_indexed_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     alt(((one_of(('?', '$')), digit1).take(), "?"))
         .parse_next(input)
         .map(|token| Token {
@@ -294,7 +291,7 @@ fn get_indexed_placeholder_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> 
         })
 }
 
-fn get_ident_named_placeholder_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_ident_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     (
         one_of(('@', ':', '$')),
         take_while(1.., |item: char| {
@@ -313,7 +310,7 @@ fn get_ident_named_placeholder_token<'i>(input: &mut &'i str) -> PResult<Token<'
         })
 }
 
-fn get_string_named_placeholder_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_string_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     (one_of(('@', ':')), get_placeholder_string_token)
         .take()
         .parse_next(input)
@@ -332,7 +329,7 @@ fn get_escaped_placeholder_key<'a>(key: &'a str, quote_char: &str) -> Cow<'a, st
     Cow::Owned(key.replace(&format!("\\{}", quote_char), quote_char))
 }
 
-fn get_number_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_number_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     (opt("-"), alt((scientific_notation, decimal_number, digit1)))
         .take()
         .parse_next(input)
@@ -343,11 +340,11 @@ fn get_number_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
         })
 }
 
-fn decimal_number<'i>(input: &mut &'i str) -> PResult<&'i str> {
+fn decimal_number<'i>(input: &mut &'i str) -> Result<&'i str> {
     (digit1, ".", digit0).take().parse_next(input)
 }
 
-fn scientific_notation<'i>(input: &mut &'i str) -> PResult<&'i str> {
+fn scientific_notation<'i>(input: &mut &'i str) -> Result<&'i str> {
     (
         alt((decimal_number, digit1)),
         "e",
@@ -363,17 +360,17 @@ fn get_reserved_word_token<'a>(
     previous_token: Option<Token<'a>>,
     last_reserved_token: Option<Token<'a>>,
     last_reserved_top_level_token: Option<Token<'a>>,
-) -> PResult<Token<'a>> {
+) -> Result<Token<'a>> {
     // A reserved word cannot be preceded by a "."
     // this makes it so in "my_table.from", "from" is not considered a reserved word
     if let Some(token) = previous_token {
         if token.value == "." {
-            return Err(ErrMode::from_error_kind(input, ErrorKind::Slice));
+            return Err(ParserError::from_input(input));
         }
     }
 
     if !('a'..='z', 'A'..='Z', '$').contains_token(input.chars().next().unwrap_or('\0')) {
-        return Err(ErrMode::from_error_kind(input, ErrorKind::Slice));
+        return Err(ParserError::from_input(input));
     }
 
     alt((
@@ -406,7 +403,7 @@ fn get_top_level_reserved_token<'a>(
         let first_char = peek(any).parse_next(input)?.to_ascii_uppercase();
 
         // Match keywords based on their first letter
-        let result: PResult<&str> = match first_char {
+        let result: Result<&str> = match first_char {
             'A' => alt((
                 terminated("ADD", end_of_word),
                 terminated("AFTER", end_of_word),
@@ -462,10 +459,7 @@ fn get_top_level_reserved_token<'a>(
             'W' => terminated("WHERE", end_of_word).parse_next(&mut uc_input),
 
             // If the first character doesn't match any of our keywords, fail early
-            _ => Err(ErrMode::from_error_kind(
-                &uc_input,
-                winnow::error::ErrorKind::Tag,
-            )),
+            _ => Err(ParserError::from_input(&uc_input)),
         };
 
         if let Ok(token) = result {
@@ -490,7 +484,7 @@ fn get_top_level_reserved_token<'a>(
                 key: None,
             })
         } else {
-            Err(ErrMode::from_error_kind(input, ErrorKind::Tag))
+            Err(ParserError::from_input(input))
         }
     }
 }
@@ -554,7 +548,7 @@ fn get_newline_reserved_token<'a>(
         ));
 
         // Combine all parsers
-        let result: PResult<&str> = alt((standard_joins, specific_joins, special_joins, operators))
+        let result: Result<&str> = alt((standard_joins, specific_joins, special_joins, operators))
             .parse_next(&mut uc_input);
 
         if let Ok(token) = result {
@@ -577,16 +571,16 @@ fn get_newline_reserved_token<'a>(
                 key: None,
             })
         } else {
-            Err(ErrMode::from_error_kind(input, ErrorKind::Alt))
+            Err(ParserError::from_input(input))
         }
     }
 }
 
-fn get_top_level_reserved_token_no_indent<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_top_level_reserved_token_no_indent<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     let uc_input = get_uc_words(input, 2);
     let mut uc_input = uc_input.as_str();
 
-    let result: PResult<&str> = alt((
+    let result: Result<&str> = alt((
         terminated("BEGIN", end_of_word),
         terminated("DECLARE", end_of_word),
         terminated("INTERSECT", end_of_word),
@@ -608,19 +602,19 @@ fn get_top_level_reserved_token_no_indent<'i>(input: &mut &'i str) -> PResult<To
             key: None,
         })
     } else {
-        Err(ErrMode::from_error_kind(input, ErrorKind::Alt))
+        Err(ParserError::from_input(input))
     }
 }
-fn get_plain_reserved_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_plain_reserved_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     alt((get_plain_reserved_two_token, get_plain_reserved_one_token)).parse_next(input)
 }
-fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     let uc_input = get_uc_words(input, 1);
     let mut uc_input = uc_input.as_str();
 
     let first_char = peek(any).parse_next(input)?.to_ascii_uppercase();
 
-    let result: PResult<&str> = match first_char {
+    let result: Result<&str> = match first_char {
         'A' => alt((
             terminated("ACCESSIBLE", end_of_word),
             terminated("ACTION", end_of_word),
@@ -995,10 +989,7 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
 
         'Y' => alt((terminated("YEAR_MONTH", end_of_word),)).parse_next(&mut uc_input),
         // If the first character doesn't match any of our keywords, fail early
-        _ => Err(ErrMode::from_error_kind(
-            &uc_input,
-            winnow::error::ErrorKind::Tag,
-        )),
+        _ => Err(ParserError::from_input(&uc_input)),
     };
     if let Ok(token) = result {
         let input_end_pos = token.len();
@@ -1009,14 +1000,14 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
             key: None,
         })
     } else {
-        Err(ErrMode::from_error_kind(input, ErrorKind::Alt))
+        Err(ParserError::from_input(input))
     }
 }
 
-fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     let uc_input = get_uc_words(input, 2);
     let mut uc_input = uc_input.as_str();
-    let result: PResult<&str> = alt((
+    let result: Result<&str> = alt((
         terminated("CHARACTER SET", end_of_word),
         terminated("ON DELETE", end_of_word),
         terminated("ON UPDATE", end_of_word),
@@ -1032,11 +1023,11 @@ fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
             key: None,
         })
     } else {
-        Err(ErrMode::from_error_kind(input, ErrorKind::Alt))
+        Err(ParserError::from_input(input))
     }
 }
 
-fn get_word_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_word_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     take_while(1.., is_word_character)
         .parse_next(input)
         .map(|token| Token {
@@ -1046,7 +1037,7 @@ fn get_word_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
         })
 }
 
-fn get_operator_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_operator_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     // Define the allowed operator characters
     let allowed_operators = (
         '!', '<', '>', '=', '|', ':', '-', '~', '*', '&', '@', '^', '?', '#', '/', '%',
@@ -1060,7 +1051,7 @@ fn get_operator_token<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
         })
         .parse_next(input)
 }
-fn get_any_other_char<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
+fn get_any_other_char<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     one_of(|token| token != '\n' && token != '\r')
         .take()
         .parse_next(input)
@@ -1071,7 +1062,7 @@ fn get_any_other_char<'i>(input: &mut &'i str) -> PResult<Token<'i>> {
         })
 }
 
-fn end_of_word<'i>(input: &mut &'i str) -> PResult<&'i str> {
+fn end_of_word<'i>(input: &mut &'i str) -> Result<&'i str> {
     peek(alt((
         eof,
         one_of(|val: char| !is_word_character(val)).take(),

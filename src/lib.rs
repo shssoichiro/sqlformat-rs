@@ -92,6 +92,12 @@ pub enum QueryParams {
     None,
 }
 
+#[derive(Default)]
+pub(crate) struct SpanInfo {
+    pub full_span: usize,
+    // potentially comma span info here
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2140,14 +2146,14 @@ from
     fn it_formats_blocks_inline_or_not() {
         let input = " UPDATE t SET o = ($5 + $6 + $7 + $8),a = CASE WHEN $2
             THEN NULL ELSE COALESCE($3, b) END, b = CASE WHEN $4 THEN NULL ELSE
-            COALESCE($5, b) END, s = (SELECT true FROM bar WHERE bar.foo = $99),
+            COALESCE($5, b) END, s = (SELECT true FROM bar WHERE bar.foo = $99 AND bar.foo > $100),
             c = CASE WHEN $6 THEN NULL ELSE COALESCE($7, c) END,
-            d = CASE WHEN $8 THEN NULL ELSE COALESCE($9, d) END,
+            d = CASE WHEN $8 THEN NULL ELSE COALESCE($9, dddddddd) + bbbbb END,
             e = (SELECT true FROM bar) WHERE id = $1";
         let options = FormatOptions {
-            max_inline_arguments: Some(50),
-            max_inline_block: 100,
-            max_inline_top_level: Some(10),
+            max_inline_arguments: Some(60),
+            max_inline_block: 60,
+            max_inline_top_level: Some(60),
             ..Default::default()
         };
         let expected = indoc!(
@@ -2157,9 +2163,17 @@ from
             o = ($5 + $6 + $7 + $8),
             a = CASE WHEN $2 THEN NULL ELSE COALESCE($3, b) END,
             b = CASE WHEN $4 THEN NULL ELSE COALESCE($5, b) END,
-            s = (SELECT true FROM bar WHERE bar.foo = $99),
+            s = (
+              SELECT true
+              FROM bar
+              WHERE bar.foo = $99
+              AND bar.foo > $100
+            ),
             c = CASE WHEN $6 THEN NULL ELSE COALESCE($7, c) END,
-            d = CASE WHEN $8 THEN NULL ELSE COALESCE($9, d) END,
+            d = CASE
+              WHEN $8 THEN NULL
+              ELSE COALESCE($9, dddddddd) + bbbbb
+            END,
             e = (SELECT true FROM bar)
           WHERE id = $1"
         );

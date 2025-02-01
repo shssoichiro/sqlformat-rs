@@ -66,6 +66,7 @@ pub(crate) enum TokenKind {
     Number,
     Placeholder,
     Word,
+    Join,
 }
 
 #[derive(Debug, Clone)]
@@ -376,6 +377,7 @@ fn get_reserved_word_token<'a>(
     alt((
         get_top_level_reserved_token(last_reserved_top_level_token),
         get_newline_reserved_token(last_reserved_token),
+        get_join_token(),
         get_top_level_reserved_token_no_indent,
         get_plain_reserved_token,
     ))
@@ -446,6 +448,8 @@ fn get_top_level_reserved_token<'a>(
 
             'S' => alt((
                 terminated("SELECT", end_of_word),
+                terminated("SELECT DISTINCT", end_of_word),
+                terminated("SELECT ALL", end_of_word),
                 terminated("SET CURRENT SCHEMA", end_of_word),
                 terminated("SET SCHEMA", end_of_word),
                 terminated("SET", end_of_word),
@@ -489,15 +493,10 @@ fn get_top_level_reserved_token<'a>(
     }
 }
 
-fn get_newline_reserved_token<'a>(
-    last_reserved_token: Option<Token<'a>>,
-) -> impl Parser<&'a str, Token<'a>, ContextError> {
+fn get_join_token<'a>() -> impl Parser<&'a str, Token<'a>, ContextError> {
     move |input: &mut &'a str| {
         let uc_input: String = get_uc_words(input, 3);
         let mut uc_input = uc_input.as_str();
-
-        // We have to break up the alternatives into multiple subsets
-        // to avoid exceeding the alt() 21 element limit.
 
         // Standard SQL joins
         let standard_joins = alt((
@@ -536,6 +535,37 @@ fn get_newline_reserved_token<'a>(
             terminated("GLOBAL FULL JOIN", end_of_word),
         ));
 
+        // Combine all parsers
+        let result: Result<&str> =
+            alt((standard_joins, specific_joins, special_joins)).parse_next(&mut uc_input);
+
+        if let Ok(token) = result {
+            let final_word = token.split(' ').last().unwrap();
+            let input_end_pos =
+                input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
+            let token = input.next_slice(input_end_pos);
+            let kind = TokenKind::Join;
+            Ok(Token {
+                kind,
+                value: token,
+                key: None,
+            })
+        } else {
+            Err(ParserError::from_input(input))
+        }
+    }
+}
+
+fn get_newline_reserved_token<'a>(
+    last_reserved_token: Option<Token<'a>>,
+) -> impl Parser<&'a str, Token<'a>, ContextError> {
+    move |input: &mut &'a str| {
+        let uc_input: String = get_uc_words(input, 3);
+        let mut uc_input = uc_input.as_str();
+
+        // We have to break up the alternatives into multiple subsets
+        // to avoid exceeding the alt() 21 element limit.
+
         // Legacy and logical operators
         let operators = alt((
             terminated("CROSS APPLY", end_of_word),
@@ -547,9 +577,17 @@ fn get_newline_reserved_token<'a>(
             terminated("ELSE", end_of_word),
         ));
 
+        let alter_table_actions = alt((
+            terminated("ADD", end_of_word),
+            terminated("DROP", end_of_word),
+            terminated("ALTER", end_of_word),
+            terminated("VALIDATE", end_of_word),
+            terminated("ENABLE", end_of_word),
+            terminated("DISABLE", end_of_word),
+        ));
+
         // Combine all parsers
-        let result: Result<&str> = alt((standard_joins, specific_joins, special_joins, operators))
-            .parse_next(&mut uc_input);
+        let result: Result<&str> = alt((operators, alter_table_actions)).parse_next(&mut uc_input);
 
         if let Ok(token) = result {
             let final_word = token.split(' ').last().unwrap();

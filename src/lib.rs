@@ -2135,4 +2135,35 @@ from
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
+
+    #[test]
+    fn it_formats_blocks_inline_or_not() {
+        let input = " UPDATE t SET o = ($5 + $6 + $7 + $8),a = CASE WHEN $2
+            THEN NULL ELSE COALESCE($3, b) END, b = CASE WHEN $4 THEN NULL ELSE
+            COALESCE($5, b) END, s = (SELECT true FROM bar WHERE bar.foo = $99),
+            c = CASE WHEN $6 THEN NULL ELSE COALESCE($7, c) END,
+            d = CASE WHEN $8 THEN NULL ELSE COALESCE($9, d) END,
+            e = (SELECT true FROM bar) WHERE id = $1";
+        let options = FormatOptions {
+            max_inline_arguments: Some(50),
+            max_inline_block: 100,
+            max_inline_top_level: Some(10),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+          UPDATE t
+          SET
+            o = ($5 + $6 + $7 + $8),
+            a = CASE WHEN $2 THEN NULL ELSE COALESCE($3, b) END,
+            b = CASE WHEN $4 THEN NULL ELSE COALESCE($5, b) END,
+            s = (SELECT true FROM bar WHERE bar.foo = $99),
+            c = CASE WHEN $6 THEN NULL ELSE COALESCE($7, c) END,
+            d = CASE WHEN $8 THEN NULL ELSE COALESCE($9, d) END,
+            e = (SELECT true FROM bar)
+          WHERE id = $1"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
 }

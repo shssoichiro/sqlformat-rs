@@ -101,6 +101,10 @@ pub(crate) fn format(
                 formatter.format_newline_reserved_word(token, &mut formatted_query);
                 formatter.previous_reserved_word = Some(token);
             }
+            TokenKind::Join => {
+                formatter.format_newline_reserved_word(token, &mut formatted_query);
+                formatter.previous_reserved_word = Some(token);
+            }
             TokenKind::Reserved => {
                 formatter.format_with_spaces(token, &mut formatted_query);
                 formatter.previous_reserved_word = Some(token);
@@ -163,7 +167,14 @@ impl<'a> Formatter<'a> {
             indentation: Indentation::new(options),
             inline_block: InlineBlock::new(
                 options.max_inline_block,
-                options.max_inline_arguments.is_none(),
+                match (options.max_inline_arguments, options.max_inline_top_level) {
+                    (Some(max_inline_args), Some(max_inline_top)) => {
+                        max_inline_args.min(max_inline_top)
+                    }
+                    (Some(max_inline_args), None) => max_inline_args,
+                    (None, Some(max_inline_top)) => max_inline_top,
+                    (None, None) => 0,
+                },
             ),
             block_level: 0,
         }
@@ -204,17 +215,34 @@ impl<'a> Formatter<'a> {
         self.add_new_line(query);
     }
 
+    // if we are inside an inline block we decide our behaviour as if we are an inline argument
+    fn top_level_behavior(&self) -> (bool, bool) {
+        let span_len = self.top_level_tokens_span();
+        let block_len = self.inline_block.cur_len();
+        if block_len > 0 {
+            let limit = self.options.max_inline_arguments.unwrap_or(0);
+            (limit < block_len, limit < span_len)
+        } else {
+            (
+                true,
+                self.options
+                    .max_inline_top_level
+                    .map_or(true, |limit| limit < span_len),
+            )
+        }
+    }
+
     fn format_top_level_reserved_word(&mut self, token: &Token<'_>, query: &mut String) {
         let span_len = self.top_level_tokens_span();
-        self.indentation.decrease_top_level();
-        self.add_new_line(query);
-        self.indentation.increase_top_level(span_len);
+        let (newline_before, newline_after) = self.top_level_behavior();
+
+        if newline_before {
+            self.indentation.decrease_top_level();
+            self.add_new_line(query);
+        }
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
-        if self
-            .options
-            .max_inline_top_level
-            .map_or(true, |limit| limit < span_len)
-        {
+        if newline_after {
+            self.indentation.increase_top_level(span_len);
             self.add_new_line(query);
         } else {
             query.push(' ');
@@ -222,10 +250,16 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_top_level_reserved_word_no_indent(&mut self, token: &Token<'_>, query: &mut String) {
-        self.indentation.decrease_top_level();
-        self.add_new_line(query);
+        let (newline_before, newline_after) = self.top_level_behavior();
+
+        if newline_before {
+            self.indentation.decrease_top_level();
+            self.add_new_line(query);
+        }
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
-        self.add_new_line(query);
+        if newline_after {
+            self.add_new_line(query);
+        }
     }
 
     fn format_newline_reserved_word(&mut self, token: &Token<'_>, query: &mut String) {
@@ -297,8 +331,9 @@ impl<'a> Formatter<'a> {
 
         self.inline_block.begin_if_possible(self.tokens, self.index);
 
+        self.indentation.increase_block_level();
+
         if !self.inline_block.is_active() {
-            self.indentation.increase_block_level();
             self.add_new_line(query);
         }
     }
@@ -330,6 +365,8 @@ impl<'a> Formatter<'a> {
 
         token.value = &value;
 
+        self.indentation.decrease_block_level();
+
         if self.inline_block.is_active() {
             self.inline_block.end();
             if token.value.to_lowercase() == "end" {
@@ -340,7 +377,6 @@ impl<'a> Formatter<'a> {
                 self.format_with_space_after(&token, query);
             }
         } else {
-            self.indentation.decrease_block_level();
             self.add_new_line(query);
             self.format_with_spaces(&token, query);
         }
@@ -493,7 +529,6 @@ impl<'a> Formatter<'a> {
     }
 
     fn top_level_tokens_span(&self) -> usize {
-        assert_eq!(self.tokens[self.index].kind, TokenKind::ReservedTopLevel);
         let mut block_level = self.block_level;
 
         self.tokens[self.index..]
@@ -508,7 +543,9 @@ impl<'a> Formatter<'a> {
                     block_level = block_level.saturating_sub(1);
                     block_level > self.block_level
                 }
-                TokenKind::ReservedTopLevel => block_level != self.block_level,
+                TokenKind::ReservedTopLevel | TokenKind::ReservedTopLevelNoIndent => {
+                    block_level != self.block_level
+                }
                 _ => true,
             })
             .map(|token| token.value.len())

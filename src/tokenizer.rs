@@ -8,7 +8,13 @@ use winnow::prelude::*;
 use winnow::token::{any, one_of, rest, take, take_until, take_while};
 use winnow::Result;
 
-pub(crate) fn tokenize(mut input: &str, named_placeholders: bool) -> Vec<Token<'_>> {
+use crate::FormatOptions;
+
+pub(crate) fn tokenize<'a>(
+    mut input: &'a str,
+    named_placeholders: bool,
+    options: &FormatOptions,
+) -> Vec<Token<'a>> {
     let mut tokens: Vec<Token> = Vec::new();
 
     let mut last_reserved_token = None;
@@ -19,17 +25,28 @@ pub(crate) fn tokenize(mut input: &str, named_placeholders: bool) -> Vec<Token<'
     }
 
     // Keep processing the string until it is empty
-    while let Ok(result) = get_next_token(
+    while let Ok(mut result) = get_next_token(
         &mut input,
         tokens.last().cloned(),
         last_reserved_token.clone(),
         last_reserved_top_level_token.clone(),
         named_placeholders,
     ) {
-        if result.kind == TokenKind::Reserved {
-            last_reserved_token = Some(result.clone());
-        } else if result.kind == TokenKind::ReservedTopLevel {
-            last_reserved_top_level_token = Some(result.clone());
+        match result.kind {
+            TokenKind::Reserved => {
+                last_reserved_token = Some(result.clone());
+            }
+            TokenKind::ReservedTopLevel => {
+                last_reserved_top_level_token = Some(result.clone());
+            }
+            TokenKind::Join => {
+                if options.joins_as_top_level {
+                    result.kind = TokenKind::ReservedTopLevel;
+                } else {
+                    result.kind = TokenKind::ReservedNewline;
+                }
+            }
+            _ => {}
         }
 
         tokens.push(result);

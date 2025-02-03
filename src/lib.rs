@@ -20,7 +20,7 @@ mod tokenizer;
 pub fn format(query: &str, params: &QueryParams, options: &FormatOptions) -> String {
     let named_placeholders = matches!(params, QueryParams::Named(_));
 
-    let tokens = tokenizer::tokenize(query, named_placeholders);
+    let tokens = tokenizer::tokenize(query, named_placeholders, options);
     formatter::format(&tokens, params, options)
 }
 
@@ -61,6 +61,10 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: None
     pub max_inline_top_level: Option<usize>,
+    /// Consider any JOIN statement as a top level keyword instead of a reserved keyword
+    ///
+    /// Default: false,
+    pub joins_as_top_level: bool,
 }
 
 impl<'a> Default for FormatOptions<'a> {
@@ -74,6 +78,7 @@ impl<'a> Default for FormatOptions<'a> {
             max_inline_block: 50,
             max_inline_arguments: None,
             max_inline_top_level: None,
+            joins_as_top_level: false,
         }
     }
 }
@@ -485,6 +490,39 @@ mod tests {
               INNER ANY JOIN orders ON customers.customer_id = orders.customer_id
               LEFT SEMI JOIN foo ON foo.id = customers.id
               PASTE JOIN bar;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_select_query_with_non_standard_join_as_toplevel() {
+        let input = indoc!(
+            "
+            SELECT customer_id.from, COUNT(order_id) AS total FROM customers
+            INNER ANY JOIN orders ON customers.customer_id = orders.customer_id
+            LEFT
+            SEMI JOIN foo ON foo.id = customers.id
+            PASTE
+            JOIN bar
+            ;"
+        );
+        let options = FormatOptions {
+            joins_as_top_level: true,
+            max_inline_top_level: Some(40),
+            max_inline_arguments: Some(40),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              customer_id.from,
+              COUNT(order_id) AS total
+            FROM customers
+            INNER ANY JOIN
+              orders ON customers.customer_id = orders.customer_id
+            LEFT SEMI JOIN foo ON foo.id = customers.id
+            PASTE JOIN bar;"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

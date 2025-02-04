@@ -2218,4 +2218,26 @@ from
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
+
+    #[test]
+    fn parse_union_all() {
+        let input = "SELECT id FROM a UNION ALL SELECT id FROM b WHERE c = $12 AND f";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              id
+            FROM
+              a
+            UNION ALL
+            SELECT
+              id
+            FROM
+              b
+            WHERE
+              c = $12
+              AND f"
+        );
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
 }

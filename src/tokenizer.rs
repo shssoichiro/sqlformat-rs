@@ -638,11 +638,11 @@ fn get_top_level_reserved_token_no_indent<'i>(input: &mut &'i str) -> Result<Tok
     let result: Result<&str> = alt((
         terminated("BEGIN", end_of_word),
         terminated("DECLARE", end_of_word),
-        terminated("INTERSECT", end_of_word),
         terminated("INTERSECT ALL", end_of_word),
+        terminated("INTERSECT", end_of_word),
         terminated("MINUS", end_of_word),
-        terminated("UNION", end_of_word),
         terminated("UNION ALL", end_of_word),
+        terminated("UNION", end_of_word),
         terminated("WITH", end_of_word),
         terminated("$$", end_of_word),
     ))

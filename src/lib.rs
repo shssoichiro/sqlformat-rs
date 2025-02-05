@@ -166,8 +166,8 @@ mod tests {
         let options = FormatOptions::default();
         let expected = indoc!(
             "
-            SELECT
-              DISTINCT name,
+            SELECT DISTINCT
+              name,
               ROUND(age / 7) field1,
               18 + 20 AS field2,
               'some string'
@@ -408,8 +408,8 @@ mod tests {
         let options = FormatOptions::default();
         let expected = indoc!(
             "
-            select
-              distinct *
+            select distinct
+              *
             frOM
               foo
               left join bar
@@ -1006,8 +1006,8 @@ mod tests {
         };
         let expected = indoc!(
             "
-            SELECT
-              DISTINCT *
+            SELECT DISTINCT
+              *
             FROM
               foo
               LEFT JOIN bar
@@ -2012,8 +2012,8 @@ mod tests {
         };
         let expected = indoc!(
             "
-            select
-              distinct *
+            select distinct
+              *
             from
               foo
               left join bar
@@ -2062,8 +2062,8 @@ mod tests {
         };
         let expected = indoc!(
             "
-            select
-              distinct *
+            select distinct
+              *
             frOM
               foo
               left join bar

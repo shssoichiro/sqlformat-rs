@@ -20,7 +20,7 @@ mod tokenizer;
 pub fn format(query: &str, params: &QueryParams, options: &FormatOptions) -> String {
     let named_placeholders = matches!(params, QueryParams::Named(_));
 
-    let tokens = tokenizer::tokenize(query, named_placeholders);
+    let tokens = tokenizer::tokenize(query, named_placeholders, options);
     formatter::format(&tokens, params, options)
 }
 
@@ -61,6 +61,10 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: None
     pub max_inline_top_level: Option<usize>,
+    /// Consider any JOIN statement as a top level keyword instead of a reserved keyword
+    ///
+    /// Default: false,
+    pub joins_as_top_level: bool,
 }
 
 impl<'a> Default for FormatOptions<'a> {
@@ -74,6 +78,7 @@ impl<'a> Default for FormatOptions<'a> {
             max_inline_block: 50,
             max_inline_arguments: None,
             max_inline_top_level: None,
+            joins_as_top_level: false,
         }
     }
 }
@@ -90,6 +95,12 @@ pub enum QueryParams {
     Indexed(Vec<String>),
     #[default]
     None,
+}
+
+#[derive(Default)]
+pub(crate) struct SpanInfo {
+    pub full_span: usize,
+    // potentially comma span info here
 }
 
 #[cfg(test)]
@@ -155,8 +166,8 @@ mod tests {
         let options = FormatOptions::default();
         let expected = indoc!(
             "
-            SELECT
-              DISTINCT name,
+            SELECT DISTINCT
+              name,
               ROUND(age / 7) field1,
               18 + 20 AS field2,
               'some string'
@@ -397,8 +408,8 @@ mod tests {
         let options = FormatOptions::default();
         let expected = indoc!(
             "
-            select
-              distinct *
+            select distinct
+              *
             frOM
               foo
               left join bar
@@ -479,6 +490,39 @@ mod tests {
               INNER ANY JOIN orders ON customers.customer_id = orders.customer_id
               LEFT SEMI JOIN foo ON foo.id = customers.id
               PASTE JOIN bar;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_select_query_with_non_standard_join_as_toplevel() {
+        let input = indoc!(
+            "
+            SELECT customer_id.from, COUNT(order_id) AS total FROM customers
+            INNER ANY JOIN orders ON customers.customer_id = orders.customer_id
+            LEFT
+            SEMI JOIN foo ON foo.id = customers.id
+            PASTE
+            JOIN bar
+            ;"
+        );
+        let options = FormatOptions {
+            joins_as_top_level: true,
+            max_inline_top_level: Some(40),
+            max_inline_arguments: Some(40),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              customer_id.from,
+              COUNT(order_id) AS total
+            FROM customers
+            INNER ANY JOIN
+              orders ON customers.customer_id = orders.customer_id
+            LEFT SEMI JOIN foo ON foo.id = customers.id
+            PASTE JOIN bar;"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
@@ -962,8 +1006,8 @@ mod tests {
         };
         let expected = indoc!(
             "
-            SELECT
-              DISTINCT *
+            SELECT DISTINCT
+              *
             FROM
               foo
               LEFT JOIN bar
@@ -1968,8 +2012,8 @@ mod tests {
         };
         let expected = indoc!(
             "
-            select
-              distinct *
+            select distinct
+              *
             from
               foo
               left join bar
@@ -2018,8 +2062,8 @@ mod tests {
         };
         let expected = indoc!(
             "
-            select
-              distinct *
+            select distinct
+              *
             frOM
               foo
               left join bar
@@ -2140,14 +2184,14 @@ from
     fn it_formats_blocks_inline_or_not() {
         let input = " UPDATE t SET o = ($5 + $6 + $7 + $8),a = CASE WHEN $2
             THEN NULL ELSE COALESCE($3, b) END, b = CASE WHEN $4 THEN NULL ELSE
-            COALESCE($5, b) END, s = (SELECT true FROM bar WHERE bar.foo = $99),
+            COALESCE($5, b) END, s = (SELECT true FROM bar WHERE bar.foo = $99 AND bar.foo > $100),
             c = CASE WHEN $6 THEN NULL ELSE COALESCE($7, c) END,
-            d = CASE WHEN $8 THEN NULL ELSE COALESCE($9, d) END,
+            d = CASE WHEN $8 THEN NULL ELSE COALESCE($9, dddddddd) + bbbbb END,
             e = (SELECT true FROM bar) WHERE id = $1";
         let options = FormatOptions {
-            max_inline_arguments: Some(50),
-            max_inline_block: 100,
-            max_inline_top_level: Some(10),
+            max_inline_arguments: Some(60),
+            max_inline_block: 60,
+            max_inline_top_level: Some(60),
             ..Default::default()
         };
         let expected = indoc!(
@@ -2157,13 +2201,43 @@ from
             o = ($5 + $6 + $7 + $8),
             a = CASE WHEN $2 THEN NULL ELSE COALESCE($3, b) END,
             b = CASE WHEN $4 THEN NULL ELSE COALESCE($5, b) END,
-            s = (SELECT true FROM bar WHERE bar.foo = $99),
+            s = (
+              SELECT true
+              FROM bar
+              WHERE bar.foo = $99
+              AND bar.foo > $100
+            ),
             c = CASE WHEN $6 THEN NULL ELSE COALESCE($7, c) END,
-            d = CASE WHEN $8 THEN NULL ELSE COALESCE($9, d) END,
+            d = CASE
+              WHEN $8 THEN NULL
+              ELSE COALESCE($9, dddddddd) + bbbbb
+            END,
             e = (SELECT true FROM bar)
           WHERE id = $1"
         );
 
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn parse_union_all() {
+        let input = "SELECT id FROM a UNION ALL SELECT id FROM b WHERE c = $12 AND f";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              id
+            FROM
+              a
+            UNION ALL
+            SELECT
+              id
+            FROM
+              b
+            WHERE
+              c = $12
+              AND f"
+        );
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 }

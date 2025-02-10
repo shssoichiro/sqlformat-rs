@@ -4,7 +4,7 @@ use crate::indentation::Indentation;
 use crate::inline_block::InlineBlock;
 use crate::params::Params;
 use crate::tokenizer::{Token, TokenKind};
-use crate::{FormatOptions, QueryParams};
+use crate::{FormatOptions, QueryParams, SpanInfo};
 
 // -- fmt: off
 // -- fmt: on
@@ -101,10 +101,6 @@ pub(crate) fn format(
                 formatter.format_newline_reserved_word(token, &mut formatted_query);
                 formatter.previous_reserved_word = Some(token);
             }
-            TokenKind::Join => {
-                formatter.format_newline_reserved_word(token, &mut formatted_query);
-                formatter.previous_reserved_word = Some(token);
-            }
             TokenKind::Reserved => {
                 formatter.format_with_spaces(token, &mut formatted_query);
                 formatter.previous_reserved_word = Some(token);
@@ -167,14 +163,8 @@ impl<'a> Formatter<'a> {
             indentation: Indentation::new(options),
             inline_block: InlineBlock::new(
                 options.max_inline_block,
-                match (options.max_inline_arguments, options.max_inline_top_level) {
-                    (Some(max_inline_args), Some(max_inline_top)) => {
-                        max_inline_args.min(max_inline_top)
-                    }
-                    (Some(max_inline_args), None) => max_inline_args,
-                    (None, Some(max_inline_top)) => max_inline_top,
-                    (None, None) => 0,
-                },
+                options.max_inline_arguments.unwrap_or(0),
+                options.max_inline_top_level.unwrap_or(0),
             ),
             block_level: 0,
         }
@@ -215,12 +205,12 @@ impl<'a> Formatter<'a> {
         self.add_new_line(query);
     }
 
-    // if we are inside an inline block we decide our behaviour as if we are an inline argument
-    fn top_level_behavior(&self) -> (bool, bool) {
-        let span_len = self.top_level_tokens_span();
+    // if we are inside an inline block we decide our behaviour as if were inline
+    fn top_level_behavior(&self, span_info: &SpanInfo) -> (bool, bool) {
+        let span_len = span_info.full_span;
         let block_len = self.inline_block.cur_len();
         if block_len > 0 {
-            let limit = self.options.max_inline_arguments.unwrap_or(0);
+            let limit = self.options.max_inline_top_level.unwrap_or(0);
             (limit < block_len, limit < span_len)
         } else {
             (
@@ -233,8 +223,8 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_top_level_reserved_word(&mut self, token: &Token<'_>, query: &mut String) {
-        let span_len = self.top_level_tokens_span();
-        let (newline_before, newline_after) = self.top_level_behavior();
+        let span_info = self.top_level_tokens_info();
+        let (newline_before, newline_after) = self.top_level_behavior(&span_info);
 
         if newline_before {
             self.indentation.decrease_top_level();
@@ -242,7 +232,7 @@ impl<'a> Formatter<'a> {
         }
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
         if newline_after {
-            self.indentation.increase_top_level(span_len);
+            self.indentation.increase_top_level(span_info);
             self.add_new_line(query);
         } else {
             query.push(' ');
@@ -250,7 +240,8 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_top_level_reserved_word_no_indent(&mut self, token: &Token<'_>, query: &mut String) {
-        let (newline_before, newline_after) = self.top_level_behavior();
+        let span_info = self.top_level_tokens_info();
+        let (newline_before, newline_after) = self.top_level_behavior(&span_info);
 
         if newline_before {
             self.indentation.decrease_top_level();
@@ -263,10 +254,11 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_newline_reserved_word(&mut self, token: &Token<'_>, query: &mut String) {
-        if self
-            .options
-            .max_inline_arguments
-            .map_or(true, |limit| limit < self.indentation.top_level_span())
+        if !self.inline_block.is_active()
+            && self
+                .options
+                .max_inline_arguments
+                .map_or(true, |limit| limit < self.indentation.span())
         {
             self.add_new_line(query);
         } else {
@@ -406,7 +398,7 @@ impl<'a> Formatter<'a> {
 
         if matches!((self.previous_top_level_reserved_word, self.options.max_inline_arguments),
             (Some(word), Some(limit)) if ["select", "from"].contains(&word.value.to_lowercase().as_str()) &&
-                limit > self.indentation.top_level_span())
+                limit > self.indentation.span())
         {
             return;
         }
@@ -528,28 +520,33 @@ impl<'a> Formatter<'a> {
         }
     }
 
-    fn top_level_tokens_span(&self) -> usize {
+    fn top_level_tokens_info(&self) -> SpanInfo {
         let mut block_level = self.block_level;
+        let mut full_span = 0;
 
-        self.tokens[self.index..]
-            .iter()
-            .skip(1)
-            .take_while(|token| match token.kind {
+        for token in self.tokens[self.index..].iter().skip(1) {
+            match token.kind {
                 TokenKind::OpenParen => {
                     block_level += 1;
-                    true
                 }
                 TokenKind::CloseParen => {
                     block_level = block_level.saturating_sub(1);
-                    block_level > self.block_level
+                    if block_level < self.block_level {
+                        break;
+                    }
                 }
                 TokenKind::ReservedTopLevel | TokenKind::ReservedTopLevelNoIndent => {
-                    block_level != self.block_level
+                    if block_level == self.block_level {
+                        break;
+                    }
                 }
-                _ => true,
-            })
-            .map(|token| token.value.len())
-            .sum()
+                _ => {}
+            }
+
+            full_span += token.value.len();
+        }
+
+        SpanInfo { full_span }
     }
 
     fn format_no_change(&self, token: &Token<'_>, query: &mut String) {

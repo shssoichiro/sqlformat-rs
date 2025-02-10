@@ -1,9 +1,9 @@
-use crate::{FormatOptions, Indent};
+use crate::{FormatOptions, Indent, SpanInfo};
 
 pub(crate) struct Indentation<'a> {
     options: &'a FormatOptions<'a>,
     indent_types: Vec<IndentType>,
-    top_level_span: Vec<usize>,
+    top_level_span: Vec<SpanInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,7 +30,7 @@ impl<'a> Indentation<'a> {
         }
     }
 
-    pub fn increase_top_level(&mut self, span: usize) {
+    pub fn increase_top_level(&mut self, span: SpanInfo) {
         self.indent_types.push(IndentType::TopLevel);
         self.top_level_span.push(span);
     }
@@ -60,7 +60,8 @@ impl<'a> Indentation<'a> {
         self.top_level_span.clear();
     }
 
-    pub fn top_level_span(&self) -> usize {
-        self.top_level_span.last().map_or(0, |span| *span)
+    /// The full span between two top level tokens
+    pub fn span(&self) -> usize {
+        self.top_level_span.last().map_or(0, |span| span.full_span)
     }
 }

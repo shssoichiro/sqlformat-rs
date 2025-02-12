@@ -89,21 +89,19 @@ pub(crate) fn format(
             }
             TokenKind::ReservedTopLevel => {
                 formatter.format_top_level_reserved_word(token, &mut formatted_query);
-                formatter.previous_reserved_word = Some(token);
-                formatter.previous_top_level_reserved_word = Some(token);
+                formatter.indentation.set_previous_top_level(token);
             }
             TokenKind::ReservedTopLevelNoIndent => {
                 formatter.format_top_level_reserved_word_no_indent(token, &mut formatted_query);
-                formatter.previous_reserved_word = Some(token);
-                formatter.previous_top_level_reserved_word = Some(token);
+                formatter.indentation.set_previous_top_level(token);
             }
             TokenKind::ReservedNewline => {
                 formatter.format_newline_reserved_word(token, &mut formatted_query);
-                formatter.previous_reserved_word = Some(token);
+                formatter.indentation.set_previous_reserved(token);
             }
             TokenKind::Reserved => {
                 formatter.format_with_spaces(token, &mut formatted_query);
-                formatter.previous_reserved_word = Some(token);
+                formatter.indentation.set_previous_reserved(token);
             }
             TokenKind::OpenParen => {
                 formatter.format_opening_parentheses(token, &mut formatted_query);
@@ -141,8 +139,6 @@ pub(crate) fn format(
 
 struct Formatter<'a> {
     index: usize,
-    previous_reserved_word: Option<&'a Token<'a>>,
-    previous_top_level_reserved_word: Option<&'a Token<'a>>,
     tokens: &'a [Token<'a>],
     params: Params<'a>,
     options: &'a FormatOptions<'a>,
@@ -155,8 +151,6 @@ impl<'a> Formatter<'a> {
     fn new(tokens: &'a [Token<'a>], params: &'a QueryParams, options: &'a FormatOptions) -> Self {
         Formatter {
             index: 0,
-            previous_reserved_word: None,
-            previous_top_level_reserved_word: None,
             tokens,
             params: Params::new(params),
             options,
@@ -389,14 +383,15 @@ impl<'a> Formatter<'a> {
             return;
         }
         if self
-            .previous_reserved_word
+            .indentation
+            .previous_reserved()
             .map(|word| word.value.to_lowercase() == "limit")
             .unwrap_or(false)
         {
             return;
         }
 
-        if matches!((self.previous_top_level_reserved_word, self.options.max_inline_arguments),
+        if matches!((self.indentation.previous_top_level_reserved(), self.options.max_inline_arguments),
             (Some(word), Some(limit)) if ["select", "from"].contains(&word.value.to_lowercase().as_str()) &&
                 limit > self.indentation.span())
         {

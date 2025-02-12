@@ -1,9 +1,16 @@
-use crate::{FormatOptions, Indent, SpanInfo};
+use crate::{tokenizer::Token, FormatOptions, Indent, SpanInfo};
+
+#[derive(Debug, Default)]
+struct PreviousTokens<'a> {
+    top_level_reserved: Option<&'a Token<'a>>,
+    reserved: Option<&'a Token<'a>>,
+}
 
 pub(crate) struct Indentation<'a> {
     options: &'a FormatOptions<'a>,
     indent_types: Vec<IndentType>,
     top_level_span: Vec<SpanInfo>,
+    previous: Vec<PreviousTokens<'a>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,6 +25,7 @@ impl<'a> Indentation<'a> {
             options,
             indent_types: Vec::new(),
             top_level_span: Vec::new(),
+            previous: Vec::new(),
         }
     }
 
@@ -37,18 +45,21 @@ impl<'a> Indentation<'a> {
 
     pub fn increase_block_level(&mut self) {
         self.indent_types.push(IndentType::BlockLevel);
+        self.previous.push(Default::default());
     }
 
     pub fn decrease_top_level(&mut self) {
         if self.indent_types.last() == Some(&IndentType::TopLevel) {
             self.indent_types.pop();
             self.top_level_span.pop();
+            self.previous.pop();
         }
     }
 
     pub fn decrease_block_level(&mut self) {
         while !self.indent_types.is_empty() {
             let kind = self.indent_types.pop();
+            self.previous.pop();
             if kind != Some(IndentType::TopLevel) {
                 break;
             }
@@ -58,6 +69,53 @@ impl<'a> Indentation<'a> {
     pub fn reset_indentation(&mut self) {
         self.indent_types.clear();
         self.top_level_span.clear();
+        self.previous.clear();
+    }
+
+    pub fn set_previous_reserved(&mut self, token: &'a Token<'a>) {
+        if let Some(previous) = self.previous.last_mut() {
+            previous.reserved = Some(token);
+        } else {
+            self.previous.push(PreviousTokens {
+                top_level_reserved: None,
+                reserved: Some(token),
+            });
+        }
+    }
+
+    pub fn set_previous_top_level(&mut self, token: &'a Token<'a>) {
+        if let Some(previous) = self.previous.last_mut() {
+            previous.top_level_reserved = Some(token);
+        } else {
+            self.previous.push(PreviousTokens {
+                top_level_reserved: Some(token),
+                reserved: Some(token),
+            });
+        }
+    }
+
+    pub fn previous_reserved(&'a self) -> Option<&'a Token<'a>> {
+        if let Some(PreviousTokens {
+            reserved,
+            top_level_reserved: _,
+        }) = self.previous.last()
+        {
+            reserved.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn previous_top_level_reserved(&'a self) -> Option<&'a Token<'a>> {
+        if let Some(PreviousTokens {
+            top_level_reserved,
+            reserved: _,
+        }) = self.previous.last()
+        {
+            top_level_reserved.as_deref()
+        } else {
+            None
+        }
     }
 
     /// The full span between two top level tokens

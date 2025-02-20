@@ -2054,6 +2054,26 @@ mod tests {
     }
 
     #[test]
+    fn format_short_with() {
+        let input = "WITH a AS ( SELECT a, b, c FROM t WHERE a > 100 ) SELECT b, field FROM a, aa;";
+        let max_line = 80;
+        let options = FormatOptions {
+            max_inline_block: max_line,
+            max_inline_arguments: Some(max_line),
+            max_inline_top_level: Some(max_line),
+            joins_as_top_level: true,
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            WITH a AS (SELECT a, b, c FROM t WHERE a > 100)
+            SELECT b, field
+            FROM a, aa;"
+        };
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn format_nested_select_nested_blocks() {
         let input =
             "WITH a AS ( SELECT a, b, c FROM t WHERE a > 100 ), aa AS ( SELECT field FROM table ),

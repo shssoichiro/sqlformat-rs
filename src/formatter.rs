@@ -244,6 +244,8 @@ impl<'a> Formatter<'a> {
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
         if newline_after {
             self.add_new_line(query);
+        } else {
+            query.push(' ');
         }
     }
 

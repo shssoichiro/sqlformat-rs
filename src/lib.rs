@@ -110,6 +110,27 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
+    fn test_sqlite_blob_literal_fmt() {
+        let options = FormatOptions::default();
+
+        let input = "SELECT x'73716c69676874' AS BLOB_VAL;";
+        let expected = indoc!(
+            "
+            SELECT
+              x'73716c69676874' AS BLOB_VAL;"
+        );
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+
+        let input = "SELECT X'73716c69676874' AS BLOB_VAL;";
+        let expected = indoc!(
+            "
+            SELECT
+              X'73716c69676874' AS BLOB_VAL;"
+        );
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_uses_given_indent_config_for_indentation() {
         let input = "SELECT count(*),Column1 FROM Table1;";
         let options = FormatOptions {

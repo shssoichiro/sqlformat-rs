@@ -557,7 +557,7 @@ fn get_join_token<'a>() -> impl Parser<&'a str, Token<'a>, ContextError> {
             alt((standard_joins, specific_joins, special_joins)).parse_next(&mut uc_input);
 
         if let Ok(token) = result {
-            let final_word = token.split(' ').last().unwrap();
+            let final_word = token.split(' ').next_back().unwrap();
             let input_end_pos =
                 input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
             let token = input.next_slice(input_end_pos);
@@ -607,7 +607,7 @@ fn get_newline_reserved_token<'a>(
         let result: Result<&str> = alt((operators, alter_table_actions)).parse_next(&mut uc_input);
 
         if let Ok(token) = result {
-            let final_word = token.split(' ').last().unwrap();
+            let final_word = token.split(' ').next_back().unwrap();
             let input_end_pos =
                 input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
             let token = input.next_slice(input_end_pos);
@@ -648,7 +648,7 @@ fn get_top_level_reserved_token_no_indent<'i>(input: &mut &'i str) -> Result<Tok
     ))
     .parse_next(&mut uc_input);
     if let Ok(token) = result {
-        let final_word = token.split(' ').last().unwrap();
+        let final_word = token.split(' ').next_back().unwrap();
         let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
         let token = input.next_slice(input_end_pos);
         Ok(Token {
@@ -1069,7 +1069,7 @@ fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     ))
     .parse_next(&mut uc_input);
     if let Ok(token) = result {
-        let final_word = token.split(' ').last().unwrap();
+        let final_word = token.split(' ').next_back().unwrap();
         let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
         let token = input.next_slice(input_end_pos);
         Ok(Token {

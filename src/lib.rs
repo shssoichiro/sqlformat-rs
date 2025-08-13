@@ -1600,6 +1600,33 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_case_when_inside_an_order_by() {
+        let input = "SELECT a, created_at FROM b ORDER BY (CASE $3 WHEN 'created_at_asc' THEN created_at END) ASC, (CASE $3 WHEN 'created_at_desc' THEN created_at END) DESC;";
+        let max_line = 120;
+        let options = FormatOptions {
+            max_inline_block: max_line,
+            max_inline_arguments: Some(max_line),
+            joins_as_top_level: true,
+            uppercase: Some(true),
+            ignore_case_convert: Some(vec!["status"]),
+            ..Default::default()
+        };
+
+        let expected = indoc!(
+            "
+            SELECT
+              a, created_at
+            FROM
+              b
+            ORDER BY
+              (CASE $3 WHEN 'created_at_asc' THEN created_at END) ASC,
+              (CASE $3 WHEN 'created_at_desc' THEN created_at END) DESC;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_recognizes_lowercase_case_end() {
         let input = "case when option = 'foo' then 1 else 2 end;";
         let options = FormatOptions::default();

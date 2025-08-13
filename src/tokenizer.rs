@@ -208,6 +208,7 @@ pub fn take_till_escaping<'a>(
 // 3. double quoted string using "" or \" to escape
 // 4. single quoted string using '' or \' to escape
 // 5. national character quoted string using N'' or N\' to escape
+// 6. hex(blob literal) does not need to escape
 fn get_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     dispatch! {any;
         '`' => (take_till_escaping('`', &['`']), any).void(),
@@ -216,6 +217,8 @@ fn get_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         '\'' => (take_till_escaping('\'', &['\'', '\\']), any).void(),
         'N' => ('\'', take_till_escaping('\'', &['\'', '\\']), any).void(),
         'E' => ('\'', take_till_escaping('\'', &['\'', '\\']), any).void(),
+        'x' => ('\'', take_till_escaping('\'', &[]), any).void(),
+        'X' => ('\'', take_till_escaping('\'', &[]), any).void(),
         _ => fail,
     }
     .take()

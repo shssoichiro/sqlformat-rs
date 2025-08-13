@@ -28,16 +28,14 @@ jobs:
           - conf: latest-nightly
             toolchain: nightly
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v5
       - name: Install ${{ matrix.toolchain }}
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          override: true
           components: clippy, rustfmt
       - name: Cache cargo registry
-        uses: actions/cache@v1
+        uses: actions/cache@v4
         with:
           path: ~/.cargo/registry/cache
           key: ${{ runner.os }}-${{ matrix.conf }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
@@ -45,16 +43,13 @@ jobs:
             ${{ runner.os }}-${{ matrix.conf }}-cargo-registry-
       - name: Run rustfmt
         if: matrix.toolchain == 'stable'
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: -- --check
+        run: |
+          cargo fmt --all -- --check
       - name: Run clippy
         if: matrix.toolchain == 'stable'
-        uses: actions-rs/clippy-check@v1
+        uses: actions-rs-plus/clippy-check@v2.3.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: -- -D warnings
+          args: --all -- -D warnings
       # FIXME: criterion and its dependencies require a newer version than 1.65, but it is only used for benchmarks.
       # Is there a way to not have criterion built when we run tests?
       - name: Run cargo check

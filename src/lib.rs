@@ -200,6 +200,22 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_distinct_from() {
+        let input = "SELECT bar IS DISTINCT FROM 'baz', IS NOT DISTINCT FROM 'foo' FROM foo;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              bar IS DISTINCT FROM 'baz',
+              IS NOT DISTINCT FROM 'foo'
+            FROM
+              foo;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn keep_select_arguments_inline() {
         let input = indoc! {
             "

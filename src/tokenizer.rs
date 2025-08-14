@@ -486,6 +486,8 @@ fn get_top_level_reserved_token<'a>(
 
             'O' => terminated("ORDER BY", end_of_word).parse_next(&mut uc_input),
 
+            'P' => terminated("PARTITION BY", end_of_word).parse_next(&mut uc_input),
+
             'R' => terminated("RETURNING", end_of_word).parse_next(&mut uc_input),
 
             'S' => alt((
@@ -502,7 +504,11 @@ fn get_top_level_reserved_token<'a>(
 
             'V' => terminated("VALUES", end_of_word).parse_next(&mut uc_input),
 
-            'W' => terminated("WHERE", end_of_word).parse_next(&mut uc_input),
+            'W' => alt((
+                terminated("WHERE", end_of_word),
+                terminated("WINDOW", end_of_word),
+            ))
+            .parse_next(&mut uc_input),
 
             // If the first character doesn't match any of our keywords, fail early
             _ => Err(ParserError::from_input(&uc_input)),

@@ -200,6 +200,32 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_over_with_window() {
+        let input =
+            "SELECT id, val, at, SUM(val) OVER win AS cumulative FROM data WINDOW win AS (PARTITION BY id ORDER BY at);";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              id,
+              val,
+              at,
+              SUM(val) OVER win AS cumulative
+            FROM
+              data
+            WINDOW
+              win AS (
+                PARTITION BY
+                  id
+                ORDER BY
+                  at
+              );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_distinct_from() {
         let input = "SELECT bar IS DISTINCT FROM 'baz', IS NOT DISTINCT FROM 'foo' FROM foo;";
         let options = FormatOptions::default();

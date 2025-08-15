@@ -484,7 +484,11 @@ fn get_top_level_reserved_token<'a>(
 
             'M' => terminated("MODIFY", end_of_word).parse_next(&mut uc_input),
 
-            'O' => terminated("ORDER BY", end_of_word).parse_next(&mut uc_input),
+            'O' => alt((
+                terminated("ORDER BY", end_of_word),
+                terminated("ON CONFLICT", end_of_word),
+            ))
+            .parse_next(&mut uc_input),
 
             'P' => terminated("PARTITION BY", end_of_word).parse_next(&mut uc_input),
 
@@ -1095,6 +1099,7 @@ fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     let mut uc_input = uc_input.as_str();
     let result: Result<&str> = alt((
         terminated("CHARACTER SET", end_of_word),
+        terminated("ON CONFLICT", end_of_word),
         terminated("ON DELETE", end_of_word),
         terminated("ON UPDATE", end_of_word),
         terminated("DISTINCT FROM", end_of_word),

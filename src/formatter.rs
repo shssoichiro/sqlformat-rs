@@ -89,11 +89,15 @@ pub(crate) fn format(
             }
             TokenKind::ReservedTopLevel => {
                 formatter.format_top_level_reserved_word(token, &mut formatted_query);
-                formatter.indentation.set_previous_top_level(token);
+                formatter.set_top_level_span(token);
             }
             TokenKind::ReservedTopLevelNoIndent => {
                 formatter.format_top_level_reserved_word_no_indent(token, &mut formatted_query);
-                formatter.indentation.set_previous_top_level(token);
+                formatter.set_top_level_span(token);
+            }
+            TokenKind::ReservedNewlineAfter => {
+                formatter.format_newline_after_reserved_word(token, &mut formatted_query);
+                formatter.set_top_level_span(token);
             }
             TokenKind::ReservedNewline => {
                 formatter.format_newline_reserved_word(token, &mut formatted_query);
@@ -162,6 +166,11 @@ impl<'a> Formatter<'a> {
             ),
             block_level: 0,
         }
+    }
+
+    fn set_top_level_span(&mut self, token: &'a Token<'a>) {
+        let span_info = self.top_level_tokens_info();
+        self.indentation.set_previous_top_level(token, span_info);
     }
 
     fn format_line_comment(&mut self, token: &Token<'_>, query: &mut String) {
@@ -243,6 +252,37 @@ impl<'a> Formatter<'a> {
         }
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
         if newline_after {
+            self.add_new_line(query);
+        } else {
+            query.push(' ');
+        }
+    }
+
+    fn format_newline_after_reserved_word(&mut self, token: &Token<'_>, query: &mut String) {
+        let span_info = self.top_level_tokens_info();
+
+        let newline_before = self
+            .options
+            .max_inline_arguments
+            .map_or(true, |limit| limit < self.indentation.span());
+
+        let newline_after = self
+            .options
+            .max_inline_arguments
+            .map_or(true, |limit| limit < span_info.full_span);
+
+        if newline_before {
+            self.indentation.decrease_top_level();
+            self.add_new_line(query);
+        } else {
+            self.trim_spaces_end(query);
+            query.push(' ');
+        }
+
+        query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
+
+        if newline_after {
+            self.indentation.increase_top_level(span_info);
             self.add_new_line(query);
         } else {
             query.push(' ');
@@ -395,12 +435,13 @@ impl<'a> Formatter<'a> {
             return;
         }
 
-        if matches!((self.indentation.previous_top_level_reserved(), self.options.max_inline_arguments),
-            (Some(word), Some(limit)) if ["select", "from"].contains(&word.value.to_lowercase().as_str()) &&
-                limit > self.indentation.span())
-        {
-            return;
+        if let Some((_, span)) = self.indentation.previous_top_level_reserved() {
+            let limit = self.options.max_inline_arguments.unwrap_or(0);
+            if limit > span.full_span {
+                return;
+            }
         }
+
         self.add_new_line(query);
     }
 
@@ -534,11 +575,18 @@ impl<'a> Formatter<'a> {
                         break;
                     }
                 }
-                TokenKind::ReservedTopLevel | TokenKind::ReservedTopLevelNoIndent => {
+                TokenKind::ReservedTopLevel
+                | TokenKind::ReservedTopLevelNoIndent
+                | TokenKind::ReservedNewlineAfter => {
                     if block_level == self.block_level {
                         break;
                     }
                 }
+                TokenKind::Whitespace => {
+                    full_span += 1;
+                    continue;
+                }
+
                 _ => {}
             }
 

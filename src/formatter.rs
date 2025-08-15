@@ -323,6 +323,8 @@ impl<'a> Formatter<'a> {
 
         if !self.inline_block.is_active() {
             self.add_new_line(query);
+        } else if token.value.to_lowercase() == "case" {
+            query.push(' ');
         }
     }
 

@@ -80,6 +80,7 @@ pub(crate) enum TokenKind {
     ReservedTopLevel,
     ReservedTopLevelNoIndent,
     ReservedNewline,
+    ReservedNewlineAfter,
     Operator,
     OpenParen,
     CloseParen,
@@ -418,6 +419,7 @@ fn get_reserved_word_token<'a>(
 
     alt((
         get_top_level_reserved_token(last_reserved_top_level_token),
+        get_newline_after_reserved_token(),
         get_newline_reserved_token(last_reserved_token),
         get_join_token(),
         get_top_level_reserved_token_no_indent,
@@ -524,14 +526,21 @@ fn get_top_level_reserved_token<'a>(
                 input.to_ascii_uppercase().find(final_word).unwrap_or(0) + final_word.len();
             let token = input.next_slice(input_end_pos);
 
-            let kind = if token == "EXCEPT"
-                && last_reserved_top_level_token.is_some()
-                && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT"
-            {
+            let kind = match token {
+                "EXCEPT"
+                    if last_reserved_top_level_token.is_some()
+                        && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT" =>
                 // If the query state doesn't allow EXCEPT, treat it as a regular word
-                TokenKind::Word
-            } else {
-                TokenKind::ReservedTopLevel
+                {
+                    TokenKind::Word
+                }
+                "SET"
+                    if last_reserved_top_level_token.is_some()
+                        && last_reserved_top_level_token.as_ref().unwrap().value == "UPDATE" =>
+                {
+                    TokenKind::ReservedNewlineAfter
+                }
+                _ => TokenKind::ReservedTopLevel,
             };
 
             Ok(Token {
@@ -597,6 +606,35 @@ fn get_join_token<'a>() -> impl Parser<&'a str, Token<'a>, ContextError> {
                 input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
             let token = input.next_slice(input_end_pos);
             let kind = TokenKind::Join;
+            Ok(Token {
+                kind,
+                value: token,
+                key: None,
+            })
+        } else {
+            Err(ParserError::from_input(input))
+        }
+    }
+}
+
+fn get_newline_after_reserved_token<'a>() -> impl Parser<&'a str, Token<'a>, ContextError> {
+    move |input: &mut &'a str| {
+        let uc_input: String = get_uc_words(input, 3);
+        let mut uc_input = uc_input.as_str();
+
+        let mut on_conflict = alt((
+            terminated("DO NOTHING", end_of_word),
+            terminated("DO UPDATE SET", end_of_word),
+        ));
+
+        let result: Result<&str> = on_conflict.parse_next(&mut uc_input);
+
+        if let Ok(token) = result {
+            let final_word = token.split(' ').next_back().unwrap();
+            let input_end_pos =
+                input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
+            let token = input.next_slice(input_end_pos);
+            let kind = TokenKind::ReservedNewlineAfter;
             Ok(Token {
                 kind,
                 value: token,
@@ -1100,6 +1138,7 @@ fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     let result: Result<&str> = alt((
         terminated("CHARACTER SET", end_of_word),
         terminated("ON CONFLICT", end_of_word),
+        terminated("ON CONSTRAINT", end_of_word),
         terminated("ON DELETE", end_of_word),
         terminated("ON UPDATE", end_of_word),
         terminated("DISTINCT FROM", end_of_word),

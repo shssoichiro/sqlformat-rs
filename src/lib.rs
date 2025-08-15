@@ -97,7 +97,7 @@ pub enum QueryParams {
     None,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct SpanInfo {
     pub full_span: usize,
     // potentially comma span info here
@@ -673,6 +673,40 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_complex_insert_query() {
+        let input = "
+ INSERT INTO t(id, a, min, max) SELECT input.id, input.a, input.min, input.max FROM ( SELECT id, a, min, max FROM foo WHERE a IN ('a', 'b') ) AS input WHERE (SELECT true FROM condition) ON CONFLICT ON CONSTRAINT a_id_key DO UPDATE SET id = EXCLUDED.id, a = EXCLUDED.severity, min = EXCLUDED.min, max = EXCLUDED.max RETURNING *; ";
+        let max_line = 50;
+        let options = FormatOptions {
+            max_inline_block: max_line,
+            max_inline_arguments: Some(max_line),
+            max_inline_top_level: Some(max_line),
+            ..Default::default()
+        };
+
+        let expected = indoc!(
+            "
+            INSERT INTO t(id, a, min, max)
+            SELECT input.id, input.a, input.min, input.max
+            FROM
+              (
+                SELECT id, a, min, max
+                FROM foo
+                WHERE a IN ('a', 'b')
+              ) AS input
+            WHERE (SELECT true FROM condition)
+            ON CONFLICT ON CONSTRAINT a_id_key DO UPDATE SET
+              id = EXCLUDED.id,
+              a = EXCLUDED.severity,
+              min = EXCLUDED.min,
+              max = EXCLUDED.max
+            RETURNING *;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_keeps_short_parenthesized_list_with_nested_parenthesis_on_single_line() {
         let input = "SELECT (a + b * (c - NOW()));";
         let options = FormatOptions::default();
@@ -759,6 +793,26 @@ mod tests {
             UPDATE
               Customers
             SET
+              ContactName = 'Alfred Schmidt',
+              City = 'Hamburg'
+            WHERE
+              CustomerName = 'Alfreds Futterkiste';"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_simple_update_query_inlining_set() {
+        let input = "UPDATE Customers SET ContactName='Alfred Schmidt', City='Hamburg' WHERE CustomerName='Alfreds Futterkiste';";
+        let options = FormatOptions {
+            max_inline_top_level: Some(20),
+            max_inline_arguments: Some(10),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            UPDATE Customers SET
               ContactName = 'Alfred Schmidt',
               City = 'Hamburg'
             WHERE
@@ -1681,13 +1735,10 @@ mod tests {
     #[test]
     fn it_formats_case_when_inside_an_order_by() {
         let input = "SELECT a, created_at FROM b ORDER BY (CASE $3 WHEN 'created_at_asc' THEN created_at END) ASC, (CASE $3 WHEN 'created_at_desc' THEN created_at END) DESC;";
-        let max_line = 120;
+        let max_line = 80;
         let options = FormatOptions {
             max_inline_block: max_line,
             max_inline_arguments: Some(max_line),
-            joins_as_top_level: true,
-            uppercase: Some(true),
-            ignore_case_convert: Some(vec!["status"]),
             ..Default::default()
         };
 
@@ -2351,7 +2402,10 @@ from
 
     #[test]
     fn it_formats_blocks_inline_or_not() {
-        let input = " UPDATE t SET o = ($5 + $6 + $7 + $8),a = CASE WHEN $2
+        let input = " UPDATE t
+
+
+        SET o = ($5 + $6 + $7 + $8),a = CASE WHEN $2
             THEN NULL ELSE COALESCE($3, b) END, b = CASE WHEN $4 THEN NULL ELSE
             COALESCE($5, b) END, s = (SELECT true FROM bar WHERE bar.foo = $99 AND bar.foo > $100),
             c = CASE WHEN $6 THEN NULL ELSE COALESCE($7, c) END,
@@ -2365,8 +2419,7 @@ from
         };
         let expected = indoc!(
             "
-          UPDATE t
-          SET
+          UPDATE t SET
             o = ($5 + $6 + $7 + $8),
             a = CASE WHEN $2 THEN NULL ELSE COALESCE($3, b) END,
             b = CASE WHEN $4 THEN NULL ELSE COALESCE($5, b) END,

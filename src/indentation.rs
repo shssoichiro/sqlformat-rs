@@ -2,7 +2,7 @@ use crate::{tokenizer::Token, FormatOptions, Indent, SpanInfo};
 
 #[derive(Debug, Default)]
 struct PreviousTokens<'a> {
-    top_level_reserved: Option<&'a Token<'a>>,
+    top_level_reserved: Option<(&'a Token<'a>, SpanInfo)>,
     reserved: Option<&'a Token<'a>>,
 }
 
@@ -83,12 +83,12 @@ impl<'a> Indentation<'a> {
         }
     }
 
-    pub fn set_previous_top_level(&mut self, token: &'a Token<'a>) {
+    pub fn set_previous_top_level(&mut self, token: &'a Token<'a>, span_info: SpanInfo) {
         if let Some(previous) = self.previous.last_mut() {
-            previous.top_level_reserved = Some(token);
+            previous.top_level_reserved = Some((token, span_info));
         } else {
             self.previous.push(PreviousTokens {
-                top_level_reserved: Some(token),
+                top_level_reserved: Some((token, span_info)),
                 reserved: Some(token),
             });
         }
@@ -106,13 +106,13 @@ impl<'a> Indentation<'a> {
         }
     }
 
-    pub fn previous_top_level_reserved(&'a self) -> Option<&'a Token<'a>> {
+    pub fn previous_top_level_reserved(&'a self) -> Option<(&'a Token<'a>, &'a SpanInfo)> {
         if let Some(PreviousTokens {
             top_level_reserved,
             reserved: _,
         }) = self.previous.last()
         {
-            top_level_reserved.as_deref()
+            top_level_reserved.as_ref().map(|&(t, ref s)| (t, s))
         } else {
             None
         }

@@ -76,7 +76,6 @@ pub(crate) fn format(
             formatter.format_no_change(token, &mut formatted_query);
             continue;
         }
-
         match token.kind {
             TokenKind::Whitespace => {
                 // ignore (we do our own whitespace formatting)
@@ -112,8 +111,8 @@ pub(crate) fn format(
             TokenKind::Placeholder => {
                 formatter.format_placeholder(token, &mut formatted_query);
             }
-            TokenKind::DoubleColon => {
-                formatter.format_double_colon(token, &mut formatted_query);
+            TokenKind::TypeSpecifier => {
+                formatter.format_type_specifier(token, &mut formatted_query);
             }
             _ => match token.value {
                 "," => {
@@ -189,9 +188,9 @@ impl<'a> Formatter<'a> {
         self.add_new_line(query);
     }
 
-    fn format_double_colon(&self, _token: &Token<'_>, query: &mut String) {
+    fn format_type_specifier(&self, token: &Token<'_>, query: &mut String) {
         self.trim_all_spaces_end(query);
-        query.push_str("::");
+        query.push_str(token.value);
     }
     fn format_block_comment(&mut self, token: &Token<'_>, query: &mut String) {
         self.add_new_line(query);

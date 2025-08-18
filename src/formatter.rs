@@ -165,11 +165,11 @@ impl<'a> Formatter<'a> {
 
     fn format_line_comment(&mut self, token: &Token<'_>, query: &mut String) {
         let is_whitespace_followed_by_special_token =
-            self.next_token(1).map_or(false, |current_token| {
+            self.next_token(1).is_some_and(|current_token| {
                 current_token.kind == TokenKind::Whitespace
-                    && self.next_token(2).map_or(false, |next_token| {
-                        !matches!(next_token.kind, TokenKind::Operator)
-                    })
+                    && self
+                        .next_token(2)
+                        .is_some_and(|next_token| !matches!(next_token.kind, TokenKind::Operator))
             });
 
         let previous_token = self.previous_token(1);
@@ -210,7 +210,7 @@ impl<'a> Formatter<'a> {
                 true,
                 self.options
                     .max_inline_top_level
-                    .map_or(true, |limit| limit < span_len),
+                    .is_none_or(|limit| limit < span_len),
             )
         }
     }
@@ -253,7 +253,7 @@ impl<'a> Formatter<'a> {
             && self
                 .options
                 .max_inline_arguments
-                .map_or(true, |limit| limit < self.indentation.span())
+                .is_none_or(|limit| limit < self.indentation.span())
         {
             self.add_new_line(query);
         } else {

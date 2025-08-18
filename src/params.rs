@@ -12,7 +12,7 @@ impl<'a> Params<'a> {
     }
 
     pub fn get(&mut self, token: &'a Token<'a>) -> &'a str {
-        let named_placeholder_token = token.key.as_ref().map_or(false, |key| key.named() != "");
+        let named_placeholder_token = token.key.as_ref().is_some_and(|key| key.named() != "");
 
         match self.params {
             QueryParams::Named(params) => token

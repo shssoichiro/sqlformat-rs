@@ -735,6 +735,50 @@ mod tests {
     }
 
     #[test]
+    fn it_does_not_indent_next_statement_when_max_inline_arguments_is_some_nat() {
+        let args = [None, Some(0), Some(999)];
+
+        for arg in args {
+            let input = indoc!(
+                "
+                DROP INDEX IF EXISTS idx_a;
+
+                DROP INDEX IF EXISTS idx_b;
+                "
+            );
+            let options = FormatOptions {
+                max_inline_arguments: arg,
+                ..Default::default()
+            };
+            let expected = indoc!(
+                "
+                DROP INDEX IF EXISTS idx_a;
+
+                DROP INDEX IF EXISTS idx_b;
+                "
+            );
+
+            assert_eq!(format(input, &QueryParams::None, &options), expected);
+
+            let input = indoc!(
+                r#"
+                -- comment
+                DROP TABLE IF EXISTS "public"."table_name";
+                "#
+            );
+
+            let expected = indoc!(
+                r#"
+                -- comment
+                DROP TABLE IF EXISTS "public"."table_name";
+                "#
+            );
+
+            assert_eq!(format(input, &QueryParams::None, &options), expected);
+        }
+    }
+
+    #[test]
     fn it_formats_incomplete_query() {
         let input = "SELECT count(";
         let options = FormatOptions::default();

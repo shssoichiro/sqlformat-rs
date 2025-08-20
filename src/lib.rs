@@ -398,6 +398,22 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_type_specifiers() {
+        let input = "SELECT id,  ARRAY [] :: UUID [] FROM UNNEST($1  ::  UUID   []);";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              id,
+              ARRAY[]::UUID[]
+            FROM
+              UNNEST($1::UUID[]);"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_limit_of_single_value_and_offset() {
         let input = "LIMIT 5 OFFSET 8;";
         let options = FormatOptions::default();

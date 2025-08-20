@@ -76,7 +76,6 @@ pub(crate) fn format(
             formatter.format_no_change(token, &mut formatted_query);
             continue;
         }
-
         match token.kind {
             TokenKind::Whitespace => {
                 // ignore (we do our own whitespace formatting)
@@ -112,8 +111,8 @@ pub(crate) fn format(
             TokenKind::Placeholder => {
                 formatter.format_placeholder(token, &mut formatted_query);
             }
-            TokenKind::DoubleColon => {
-                formatter.format_double_colon(token, &mut formatted_query);
+            TokenKind::TypeSpecifier => {
+                formatter.format_type_specifier(token, &mut formatted_query);
             }
             _ => match token.value {
                 "," => {
@@ -166,11 +165,11 @@ impl<'a> Formatter<'a> {
 
     fn format_line_comment(&mut self, token: &Token<'_>, query: &mut String) {
         let is_whitespace_followed_by_special_token =
-            self.next_token(1).map_or(false, |current_token| {
+            self.next_token(1).is_some_and(|current_token| {
                 current_token.kind == TokenKind::Whitespace
-                    && self.next_token(2).map_or(false, |next_token| {
-                        !matches!(next_token.kind, TokenKind::Operator)
-                    })
+                    && self
+                        .next_token(2)
+                        .is_some_and(|next_token| !matches!(next_token.kind, TokenKind::Operator))
             });
 
         let previous_token = self.previous_token(1);
@@ -189,9 +188,9 @@ impl<'a> Formatter<'a> {
         self.add_new_line(query);
     }
 
-    fn format_double_colon(&self, _token: &Token<'_>, query: &mut String) {
+    fn format_type_specifier(&self, token: &Token<'_>, query: &mut String) {
         self.trim_all_spaces_end(query);
-        query.push_str("::");
+        query.push_str(token.value);
     }
     fn format_block_comment(&mut self, token: &Token<'_>, query: &mut String) {
         self.add_new_line(query);
@@ -211,7 +210,7 @@ impl<'a> Formatter<'a> {
                 true,
                 self.options
                     .max_inline_top_level
-                    .map_or(true, |limit| limit < span_len),
+                    .is_none_or(|limit| limit < span_len),
             )
         }
     }
@@ -254,7 +253,7 @@ impl<'a> Formatter<'a> {
             && self
                 .options
                 .max_inline_arguments
-                .map_or(true, |limit| limit < self.indentation.span())
+                .is_none_or(|limit| limit < self.indentation.span())
         {
             self.add_new_line(query);
         } else {

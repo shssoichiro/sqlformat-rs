@@ -17,6 +17,7 @@ pub(crate) fn tokenize<'a>(
 ) -> Vec<Token<'a>> {
     let mut tokens: Vec<Token> = Vec::new();
 
+    let mut last_non_whitespace_token = None;
     let mut last_reserved_token = None;
     let mut last_reserved_top_level_token = None;
 
@@ -27,7 +28,7 @@ pub(crate) fn tokenize<'a>(
     // Keep processing the string until it is empty
     while let Ok(mut result) = get_next_token(
         &mut input,
-        tokens.last().cloned(),
+        last_non_whitespace_token.clone(),
         last_reserved_token.clone(),
         last_reserved_top_level_token.clone(),
         named_placeholders,
@@ -49,6 +50,10 @@ pub(crate) fn tokenize<'a>(
             _ => {}
         }
 
+        if result.kind != TokenKind::Whitespace {
+            last_non_whitespace_token = Some(result.clone());
+        }
+
         tokens.push(result);
 
         if let Ok(Some(result)) = opt(get_whitespace_token).parse_next(&mut input) {
@@ -68,7 +73,7 @@ pub(crate) struct Token<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TokenKind {
-    DoubleColon,
+    TypeSpecifier,
     Whitespace,
     String,
     Reserved,
@@ -119,6 +124,7 @@ fn get_next_token<'a>(
 ) -> Result<Token<'a>> {
     alt((
         get_comment_token,
+        |input: &mut _| get_type_specifier_token(input, previous_token.clone()),
         get_string_token,
         get_open_paren_token,
         get_close_paren_token,
@@ -131,7 +137,6 @@ fn get_next_token<'a>(
                 last_reserved_top_level_token.clone(),
             )
         },
-        get_double_colon_token,
         get_operator_token,
         |input: &mut _| get_placeholder_token(input, named_placeholders),
         get_word_token,
@@ -139,12 +144,29 @@ fn get_next_token<'a>(
     ))
     .parse_next(input)
 }
-fn get_double_colon_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
-    "::".parse_next(input).map(|token| Token {
-        kind: TokenKind::DoubleColon,
-        value: token,
-        key: None,
-    })
+fn get_type_specifier_token<'i>(
+    input: &mut &'i str,
+    previous_token: Option<Token<'i>>,
+) -> Result<Token<'i>> {
+    if previous_token.is_some_and(|token| {
+        ![
+            TokenKind::CloseParen,
+            TokenKind::Placeholder,
+            TokenKind::Reserved,
+            TokenKind::String,
+            TokenKind::TypeSpecifier,
+            TokenKind::Word,
+        ]
+        .contains(&token.kind)
+    }) {
+        fail.parse_next(input)
+    } else {
+        alt(("::", "[]")).parse_next(input).map(|token| Token {
+            kind: TokenKind::TypeSpecifier,
+            value: token,
+            key: None,
+        })
+    }
 }
 fn get_whitespace_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     take_while(1.., char::is_whitespace)

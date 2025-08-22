@@ -37,13 +37,7 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           components: clippy, rustfmt
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry/cache
-          key: ${{ runner.os }}-${{ matrix.conf }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.conf }}-cargo-registry-
+      - uses: Swatinem/rust-cache@v2
       - name: Run rustfmt
         if: matrix.toolchain == 'stable'
         run: |
@@ -57,3 +51,23 @@ jobs:
         run: cargo test
       - name: Build docs
         run: cargo doc --no-deps
+  code-coverage:
+    needs: [build-test-unix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo llvm-cov --codecov --output-path codecov.json --ignore-filename-regex tests\.rs
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: codecov.json
+          fail_ci_if_error: false

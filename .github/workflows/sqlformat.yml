@@ -1,5 +1,8 @@
 name: sqlformat
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:

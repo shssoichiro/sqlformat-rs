@@ -80,6 +80,7 @@ pub(crate) enum TokenKind {
     ReservedTopLevel,
     ReservedTopLevelNoIndent,
     ReservedNewline,
+    ReservedNewlineAfter,
     Operator,
     OpenParen,
     CloseParen,
@@ -418,6 +419,7 @@ fn get_reserved_word_token<'a>(
 
     alt((
         get_top_level_reserved_token(last_reserved_top_level_token),
+        get_newline_after_reserved_token(),
         get_newline_reserved_token(last_reserved_token),
         get_join_token(),
         get_top_level_reserved_token_no_indent,
@@ -434,6 +436,12 @@ fn get_uc_words(input: &str, words: usize) -> String {
         .collect::<Vec<&str>>()
         .join(" ")
         .to_ascii_uppercase()
+}
+
+fn finalize<'a>(input: &mut &'a str, token: &str) -> &'a str {
+    let final_word = token.split_whitespace().last().unwrap_or(token);
+    let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap_or(0) + final_word.len();
+    input.next_slice(input_end_pos)
 }
 
 fn get_top_level_reserved_token<'a>(
@@ -484,7 +492,13 @@ fn get_top_level_reserved_token<'a>(
 
             'M' => terminated("MODIFY", end_of_word).parse_next(&mut uc_input),
 
-            'O' => terminated("ORDER BY", end_of_word).parse_next(&mut uc_input),
+            'O' => alt((
+                terminated("ORDER BY", end_of_word),
+                terminated("ON CONFLICT", end_of_word),
+            ))
+            .parse_next(&mut uc_input),
+
+            'P' => terminated("PARTITION BY", end_of_word).parse_next(&mut uc_input),
 
             'R' => terminated("RETURNING", end_of_word).parse_next(&mut uc_input),
 
@@ -502,26 +516,34 @@ fn get_top_level_reserved_token<'a>(
 
             'V' => terminated("VALUES", end_of_word).parse_next(&mut uc_input),
 
-            'W' => terminated("WHERE", end_of_word).parse_next(&mut uc_input),
+            'W' => alt((
+                terminated("WHERE", end_of_word),
+                terminated("WINDOW", end_of_word),
+            ))
+            .parse_next(&mut uc_input),
 
             // If the first character doesn't match any of our keywords, fail early
             _ => Err(ParserError::from_input(&uc_input)),
         };
 
         if let Ok(token) = result {
-            let final_word = token.split_whitespace().last().unwrap_or(token);
-            let input_end_pos =
-                input.to_ascii_uppercase().find(final_word).unwrap_or(0) + final_word.len();
-            let token = input.next_slice(input_end_pos);
+            let token = finalize(input, token);
 
-            let kind = if token == "EXCEPT"
-                && last_reserved_top_level_token.is_some()
-                && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT"
-            {
+            let kind = match token {
+                "EXCEPT"
+                    if last_reserved_top_level_token.is_some()
+                        && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT" =>
                 // If the query state doesn't allow EXCEPT, treat it as a regular word
-                TokenKind::Word
-            } else {
-                TokenKind::ReservedTopLevel
+                {
+                    TokenKind::Word
+                }
+                "SET"
+                    if last_reserved_top_level_token.is_some()
+                        && last_reserved_top_level_token.as_ref().unwrap().value == "UPDATE" =>
+                {
+                    TokenKind::ReservedNewlineAfter
+                }
+                _ => TokenKind::ReservedTopLevel,
             };
 
             Ok(Token {
@@ -598,6 +620,30 @@ fn get_join_token<'a>() -> impl Parser<&'a str, Token<'a>, ContextError> {
     }
 }
 
+fn get_newline_after_reserved_token<'a>() -> impl Parser<&'a str, Token<'a>, ContextError> {
+    move |input: &mut &'a str| {
+        let uc_input: String = get_uc_words(input, 3);
+        let mut uc_input = uc_input.as_str();
+
+        let mut on_conflict = alt((
+            terminated("DO NOTHING", end_of_word),
+            terminated("DO UPDATE SET", end_of_word),
+        ));
+
+        let result: Result<&str> = on_conflict.parse_next(&mut uc_input);
+
+        if let Ok(token) = result {
+            Ok(Token {
+                kind: TokenKind::ReservedNewlineAfter,
+                value: finalize(input, token),
+                key: None,
+            })
+        } else {
+            Err(ParserError::from_input(input))
+        }
+    }
+}
+
 fn get_newline_reserved_token<'a>(
     last_reserved_token: Option<Token<'a>>,
 ) -> impl Parser<&'a str, Token<'a>, ContextError> {
@@ -632,10 +678,7 @@ fn get_newline_reserved_token<'a>(
         let result: Result<&str> = alt((operators, alter_table_actions)).parse_next(&mut uc_input);
 
         if let Ok(token) = result {
-            let final_word = token.split(' ').next_back().unwrap();
-            let input_end_pos =
-                input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
-            let token = input.next_slice(input_end_pos);
+            let token = finalize(input, token);
             let kind = if token == "AND"
                 && last_reserved_token.is_some()
                 && last_reserved_token.as_ref().unwrap().value == "BETWEEN"
@@ -673,12 +716,9 @@ fn get_top_level_reserved_token_no_indent<'i>(input: &mut &'i str) -> Result<Tok
     ))
     .parse_next(&mut uc_input);
     if let Ok(token) = result {
-        let final_word = token.split(' ').next_back().unwrap();
-        let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
-        let token = input.next_slice(input_end_pos);
         Ok(Token {
             kind: TokenKind::ReservedTopLevelNoIndent,
-            value: token,
+            value: finalize(input, token),
             key: None,
         })
     } else {
@@ -1089,17 +1129,17 @@ fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     let mut uc_input = uc_input.as_str();
     let result: Result<&str> = alt((
         terminated("CHARACTER SET", end_of_word),
+        terminated("ON CONFLICT", end_of_word),
+        terminated("ON CONSTRAINT", end_of_word),
         terminated("ON DELETE", end_of_word),
         terminated("ON UPDATE", end_of_word),
+        terminated("DISTINCT FROM", end_of_word),
     ))
     .parse_next(&mut uc_input);
     if let Ok(token) = result {
-        let final_word = token.split(' ').next_back().unwrap();
-        let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
-        let token = input.next_slice(input_end_pos);
         Ok(Token {
             kind: TokenKind::Reserved,
-            value: token,
+            value: finalize(input, token),
             key: None,
         })
     } else {

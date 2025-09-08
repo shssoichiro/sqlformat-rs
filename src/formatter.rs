@@ -77,7 +77,6 @@ pub(crate) fn format(
             continue;
         }
 
-        println!("{token:?}");
         match token.kind {
             TokenKind::Whitespace => {
                 // ignore (we do our own whitespace formatting)
@@ -321,28 +320,20 @@ impl<'a> Formatter<'a> {
             TokenKind::Reserved,
             TokenKind::ReservedTopLevel,
             TokenKind::Operator,
+            TokenKind::Whitespace,
         ];
-        const STRIP_WHITESPACE_FOR_TOP_LEVEL: &[&str] = &[
-            "select",
-            "select distinct",
-            "values",
-            "from",
-            "modify",
-            "alter column",
-        ];
+        const STRIP_WHITESPACE_FOR_TOP_LEVEL: &[&str] =
+            &["select", "values", "from", "modify", "alter column"];
 
         // Take out the preceding space unless another opening parens or line comment
         let previous_token = self.previous_token(1).map(|t| t.kind);
         let previous_top_level_reserved = self.indentation.previous_top_level_reserved();
 
-        println!("{previous_token:?} {previous_top_level_reserved:?}");
-
         if previous_token.is_none_or(|kind| !PRESERVE_WHITESPACE_FOR.contains(&kind))
             && previous_top_level_reserved.is_none_or(|token| {
-                STRIP_WHITESPACE_FOR_TOP_LEVEL.contains(&token.0.value.to_lowercase().as_str())
+                STRIP_WHITESPACE_FOR_TOP_LEVEL.contains(&token.0.alias.to_lowercase().as_str())
             })
         {
-            println!("trimming");
             self.trim_spaces_end(query);
         }
 
@@ -557,10 +548,13 @@ impl<'a> Formatter<'a> {
     fn previous_token(&self, idx: usize) -> Option<&Token<'_>> {
         let index = self.index.checked_sub(idx);
         if let Some(index) = index {
+            self.tokens.get(index)
+            /*
             self.tokens[..=index]
                 .iter()
                 .rev()
                 .find(|t| t.kind != TokenKind::Whitespace)
+                */
         } else {
             None
         }
@@ -569,9 +563,11 @@ impl<'a> Formatter<'a> {
     fn next_token(&self, idx: usize) -> Option<&Token<'_>> {
         let index = self.index.checked_add(idx);
         if let Some(index) = index {
+            self.tokens.get(index)
+            /*
             self.tokens[index..]
                 .iter()
-                .find(|t| t.kind != TokenKind::Whitespace)
+                .find(|t| t.kind != TokenKind::Whitespace) */
         } else {
             None
         }

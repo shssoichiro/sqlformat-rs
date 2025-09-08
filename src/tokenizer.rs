@@ -461,7 +461,7 @@ fn get_top_level_reserved_token<'a>(
     last_reserved_top_level_token: Option<Token<'a>>,
 ) -> impl Parser<&'a str, Token<'a>, ContextError> {
     move |input: &mut &'a str| {
-        let uc_input: String = get_uc_words(input, 3);
+        let uc_input: String = get_uc_words(input, 7);
         let mut uc_input = uc_input.as_str();
 
         // First peek at the first character to determine which group to check
@@ -481,6 +481,7 @@ fn get_top_level_reserved_token<'a>(
                 (
                     "CREATE ",
                     opt(alt((
+                        "EXTERNAL ",
                         "UNLOGGED ",
                         (
                             alt(("GLOBAL ", "LOCAL ")),
@@ -489,6 +490,7 @@ fn get_top_level_reserved_token<'a>(
                             .take(),
                     ))),
                     "TABLE",
+                    opt(" IF NOT EXISTS"),
                 )
                     .take(),
                 end_of_word,

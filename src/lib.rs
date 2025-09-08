@@ -1006,7 +1006,7 @@ mod tests {
     fn it_formats_logical_operators() {
         let inputs = [
             "foo ALL bar",
-            "foo = ANY (1, 2, 3)",
+            "foo = ANY(1, 2, 3)",
             "EXISTS bar",
             "foo IN (1, 2, 3)",
             "foo LIKE 'hello%'",
@@ -1190,11 +1190,12 @@ mod tests {
               *
             FROM
               test;
-            CREATE TABLE TEST(
-              id NUMBER NOT NULL,
-              col1 VARCHAR2(20),
-              col2 VARCHAR2(20)
-            );"
+            CREATE TABLE
+              TEST (
+                id NUMBER NOT NULL,
+                col1 VARCHAR2(20),
+                col2 VARCHAR2(20)
+              );"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
@@ -1204,8 +1205,13 @@ mod tests {
     fn it_formats_short_create_table() {
         let input = "CREATE TABLE items (a INT PRIMARY KEY, b TEXT);";
         let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            CREATE TABLE
+              items (a INT PRIMARY KEY, b TEXT);"
+        );
 
-        assert_eq!(format(input, &QueryParams::None, &options), input);
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -1215,12 +1221,13 @@ mod tests {
         let options = FormatOptions::default();
         let expected = indoc!(
             "
-            CREATE TABLE items (
-              a INT PRIMARY KEY,
-              b TEXT,
-              c INT NOT NULL,
-              d INT NOT NULL
-            );"
+            CREATE TABLE
+              items (
+                a INT PRIMARY KEY,
+                b TEXT,
+                c INT NOT NULL,
+                d INT NOT NULL
+              );"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
@@ -2000,12 +2007,13 @@ mod tests {
         let expected = indoc!(
             "
             -- 创建一个外部表，存储销售数据
-            CREATE EXTERNAL TABLE IF NOT EXISTS sales_data (
-                -- 唯一标识订单ID
-                order_id BIGINT COMMENT 'Unique identifier for the order',
-                -- 客户ID
-                customer_id BIGINT COMMENT 'Unique identifier for the customer',
-            ) COMMENT 'Sales data table for storing transaction records';
+            CREATE EXTERNAL TABLE IF NOT EXISTS
+                sales_data (
+                    -- 唯一标识订单ID
+                    order_id BIGINT COMMENT 'Unique identifier for the order',
+                    -- 客户ID
+                    customer_id BIGINT COMMENT 'Unique identifier for the customer',
+                ) COMMENT 'Sales data table for storing transaction records';
             -- 按销售日期和城市进行分区
             PARTITIONED BY (
                 sale_year STRING COMMENT 'Year of the sale',
@@ -2068,10 +2076,11 @@ mod tests {
         let options = FormatOptions::default();
         let expected = indoc!(
             "
-          CREATE TABLE a (
-            b integer REFERENCES c (id) ON UPDATE RESTRICT,
-            other integer
-          );"
+          CREATE TABLE
+            a (
+              b integer REFERENCES c (id) ON UPDATE RESTRICT,
+              other integer
+            );"
         );
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }

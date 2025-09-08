@@ -1128,6 +1128,7 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             terminated("TRUNCATE", end_of_word),
             terminated("TYPE", end_of_word),
             terminated("TYPES", end_of_word),
+            terminated("TBLPROPERTIES", end_of_word),
         ))
         .parse_next(&mut uc_input),
 
@@ -1183,6 +1184,7 @@ fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         terminated("ON DELETE", end_of_word),
         terminated("ON UPDATE", end_of_word),
         terminated("DISTINCT FROM", end_of_word),
+        terminated("PARTITIONED BY", end_of_word),
     ))
     .parse_next(&mut uc_input);
     if let Ok(token) = result {

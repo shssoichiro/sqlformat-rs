@@ -535,7 +535,7 @@ fn get_top_level_reserved_token<'a>(
                         && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT" =>
                 // If the query state doesn't allow EXCEPT, treat it as a regular word
                 {
-                    TokenKind::Word
+                    TokenKind::Reserved
                 }
                 "SET"
                     if last_reserved_top_level_token.is_some()

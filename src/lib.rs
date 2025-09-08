@@ -686,7 +686,7 @@ mod tests {
 
         let expected = indoc!(
             "
-            INSERT INTO t(id, a, min, max)
+            INSERT INTO t (id, a, min, max)
             SELECT input.id, input.a, input.min, input.max
             FROM
               (
@@ -739,7 +739,7 @@ mod tests {
                 id_registration
               ) (
                 SELECT
-                  IF(
+                  IF (
                     dq.id_discounter_shopping = 2,
                     dq.value,
                     dq.value / 100

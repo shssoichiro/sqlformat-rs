@@ -69,6 +69,8 @@ pub(crate) struct Token<'a> {
     pub value: &'a str,
     // Only used for placeholder--there is a reason this isn't on the enum
     pub key: Option<PlaceholderKind<'a>>,
+    /// Used to group the behaviour of variants of tokens
+    pub alias: &'a str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,6 +168,7 @@ fn get_type_specifier_token<'i>(
             kind: TokenKind::TypeSpecifier,
             value: token,
             key: None,
+            alias: token,
         })
     }
 }
@@ -176,6 +179,7 @@ fn get_whitespace_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Whitespace,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -192,6 +196,7 @@ fn get_comment_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -250,6 +255,7 @@ fn get_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         kind: TokenKind::String,
         value: token,
         key: None,
+        alias: token,
     })
 }
 
@@ -269,6 +275,7 @@ fn get_placeholder_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         kind: TokenKind::String,
         value: token,
         key: None,
+        alias: token,
     })
 }
 
@@ -279,6 +286,7 @@ fn get_open_paren_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::OpenParen,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -289,6 +297,7 @@ fn get_close_paren_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::CloseParen,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -332,6 +341,7 @@ fn get_indexed_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             } else {
                 None
             },
+            alias: token,
         })
 }
 
@@ -350,6 +360,7 @@ fn get_ident_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i
                 kind: TokenKind::Placeholder,
                 value: token,
                 key: Some(PlaceholderKind::Named(index)),
+                alias: token,
             }
         })
 }
@@ -365,6 +376,7 @@ fn get_string_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'
                 kind: TokenKind::Placeholder,
                 value: token,
                 key: Some(PlaceholderKind::Named(index)),
+                alias: token,
             }
         })
 }
@@ -381,6 +393,7 @@ fn get_number_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Number,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -532,7 +545,7 @@ fn get_top_level_reserved_token<'a>(
             let kind = match token {
                 "EXCEPT"
                     if last_reserved_top_level_token.is_some()
-                        && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT" =>
+                        && last_reserved_top_level_token.as_ref().unwrap().alias == "SELECT" =>
                 // If the query state doesn't allow EXCEPT, treat it as a regular word
                 {
                     TokenKind::Reserved
@@ -546,10 +559,19 @@ fn get_top_level_reserved_token<'a>(
                 _ => TokenKind::ReservedTopLevel,
             };
 
+            let alias = if token.starts_with("CREATE") {
+                "CREATE"
+            } else if token.starts_with("SELECT") {
+                "SELECT"
+            } else {
+                token
+            };
+
             Ok(Token {
                 kind,
                 value: token,
                 key: None,
+                alias,
             })
         } else {
             Err(ParserError::from_input(input))
@@ -613,6 +635,7 @@ fn get_join_token<'a>() -> impl Parser<&'a str, Token<'a>, ContextError> {
                 kind,
                 value: token,
                 key: None,
+                alias: token,
             })
         } else {
             Err(ParserError::from_input(input))
@@ -633,10 +656,12 @@ fn get_newline_after_reserved_token<'a>() -> impl Parser<&'a str, Token<'a>, Con
         let result: Result<&str> = on_conflict.parse_next(&mut uc_input);
 
         if let Ok(token) = result {
+            let value = finalize(input, token);
             Ok(Token {
                 kind: TokenKind::ReservedNewlineAfter,
-                value: finalize(input, token),
+                value,
                 key: None,
+                alias: value,
             })
         } else {
             Err(ParserError::from_input(input))
@@ -692,6 +717,7 @@ fn get_newline_reserved_token<'a>(
                 kind,
                 value: token,
                 key: None,
+                alias: token,
             })
         } else {
             Err(ParserError::from_input(input))
@@ -716,10 +742,12 @@ fn get_top_level_reserved_token_no_indent<'i>(input: &mut &'i str) -> Result<Tok
     ))
     .parse_next(&mut uc_input);
     if let Ok(token) = result {
+        let value = finalize(input, token);
         Ok(Token {
             kind: TokenKind::ReservedTopLevelNoIndent,
-            value: finalize(input, token),
+            value,
             key: None,
+            alias: value,
         })
     } else {
         Err(ParserError::from_input(input))
@@ -1118,6 +1146,7 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Reserved,
             value: token,
             key: None,
+            alias: token,
         })
     } else {
         Err(ParserError::from_input(input))
@@ -1137,10 +1166,12 @@ fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     ))
     .parse_next(&mut uc_input);
     if let Ok(token) = result {
+        let value = finalize(input, token);
         Ok(Token {
             kind: TokenKind::Reserved,
-            value: finalize(input, token),
+            value,
             key: None,
+            alias: value,
         })
     } else {
         Err(ParserError::from_input(input))
@@ -1154,6 +1185,7 @@ fn get_word_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Word,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -1168,6 +1200,7 @@ fn get_operator_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Operator,
             value: token,
             key: None,
+            alias: token,
         })
         .parse_next(input)
 }
@@ -1179,6 +1212,7 @@ fn get_any_other_char<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Operator,
             value: token,
             key: None,
+            alias: token,
         })
 }
 

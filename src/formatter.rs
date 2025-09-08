@@ -306,7 +306,6 @@ impl<'a> Formatter<'a> {
             TokenKind::Reserved,
             TokenKind::ReservedTopLevel,
             TokenKind::Operator,
-            TokenKind::Whitespace,
         ];
         const STRIP_WHITESPACE_FOR_TOP_LEVEL: &[&str] =
             &["select", "values", "from", "modify", "alter column"];
@@ -538,18 +537,6 @@ impl<'a> Formatter<'a> {
                 .iter()
                 .rev()
                 .find(|t| t.kind != TokenKind::Whitespace)
-
-        } else {
-            None
-        }
-    }
-
-    fn next_token(&self, idx: usize) -> Option<&Token<'_>> {
-        let index = self.index.checked_add(idx);
-        if let Some(index) = index {
-            self.tokens[index..]
-                .iter()
-                .find(|t| t.kind != TokenKind::Whitespace) */
         } else {
             None
         }

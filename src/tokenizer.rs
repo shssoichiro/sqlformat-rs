@@ -477,6 +477,24 @@ fn get_top_level_reserved_token<'a>(
             ))
             .parse_next(&mut uc_input),
 
+            'C' => terminated(
+                (
+                    "CREATE ",
+                    opt(alt((
+                        "UNLOGGED ",
+                        (
+                            alt(("GLOBAL ", "LOCAL ")),
+                            opt(alt(("TEMPORARY ", "TEMP "))),
+                        )
+                            .take(),
+                    ))),
+                    "TABLE",
+                )
+                    .take(),
+                end_of_word,
+            )
+            .parse_next(&mut uc_input),
+
             'D' => terminated("DELETE FROM", end_of_word).parse_next(&mut uc_input),
 
             'E' => terminated("EXCEPT", end_of_word).parse_next(&mut uc_input),

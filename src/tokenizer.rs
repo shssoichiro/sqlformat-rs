@@ -490,7 +490,11 @@ fn get_top_level_reserved_token<'a>(
 
             'L' => terminated("LIMIT", end_of_word).parse_next(&mut uc_input),
 
-            'M' => terminated("MODIFY", end_of_word).parse_next(&mut uc_input),
+            'M' => alt((
+                terminated("MODIFY", end_of_word),
+                terminated("MERGE INTO", end_of_word),
+            ))
+            .parse_next(&mut uc_input),
 
             'O' => alt((
                 terminated("ORDER BY", end_of_word),
@@ -512,7 +516,11 @@ fn get_top_level_reserved_token<'a>(
             ))
             .parse_next(&mut uc_input),
 
-            'U' => terminated("UPDATE", end_of_word).parse_next(&mut uc_input),
+            'U' => alt((
+                terminated("UPDATE", end_of_word),
+                terminated("USING", end_of_word),
+            ))
+            .parse_next(&mut uc_input),
 
             'V' => terminated("VALUES", end_of_word).parse_next(&mut uc_input),
 
@@ -529,19 +537,18 @@ fn get_top_level_reserved_token<'a>(
         if let Ok(token) = result {
             let token = finalize(input, token);
 
-            let kind = match token {
-                "EXCEPT"
-                    if last_reserved_top_level_token.is_some()
-                        && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT" =>
+            let kind = match (
+                token,
+                last_reserved_top_level_token.as_ref().map(|v| v.value),
+            ) {
+                ("EXCEPT", Some("SELECT")) =>
                 // If the query state doesn't allow EXCEPT, treat it as a regular word
                 {
                     TokenKind::Word
                 }
-                "SET"
-                    if last_reserved_top_level_token.is_some()
-                        && last_reserved_top_level_token.as_ref().unwrap().value == "UPDATE" =>
-                {
-                    TokenKind::ReservedNewlineAfter
+                ("SET", Some("UPDATE")) => TokenKind::ReservedNewlineAfter,
+                ("USING", v) if v != Some("MERGE INTO") && v != Some("DELETE FROM") => {
+                    TokenKind::Reserved
                 }
                 _ => TokenKind::ReservedTopLevel,
             };
@@ -1090,7 +1097,6 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             terminated("UNSIGNED", end_of_word),
             terminated("USAGE", end_of_word),
             terminated("USE", end_of_word),
-            terminated("USING", end_of_word),
         ))
         .parse_next(&mut uc_input),
 

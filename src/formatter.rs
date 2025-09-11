@@ -233,7 +233,7 @@ impl<'a> Formatter<'a> {
             self.add_new_line(query);
         }
         query.push_str(&self.equalize_whitespace(&self.format_reserved_word(token.value)));
-        if newline_after {
+        if newline_after && token.alias != "CREATE" {
             self.indentation.increase_top_level(span_info);
             self.add_new_line(query);
         } else {

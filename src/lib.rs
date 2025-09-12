@@ -839,6 +839,25 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_full_delete_query() {
+        let input =
+            "DELETE FROM Customers USING Phonebook WHERE CustomerName='Alfred' AND Phone=5002132;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            DELETE FROM
+              Customers
+            USING
+              Phonebook
+            WHERE
+              CustomerName = 'Alfred'
+              AND Phone = 5002132;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_simple_drop_query() {
         let input = "DROP TABLE IF EXISTS admin_role;";
         let options = FormatOptions::default();

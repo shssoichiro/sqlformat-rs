@@ -573,9 +573,9 @@ fn get_top_level_reserved_token<'a>(
                 last_reserved_top_level_token.as_ref().map(|v| v.alias),
             ) {
                 ("EXCEPT", Some("SELECT")) =>
-                // If the query state doesn't allow EXCEPT, treat it as a regular word
+                // If the query state doesn't allow EXCEPT, treat it as a reserved word
                 {
-                    TokenKind::Word
+                    TokenKind::Reserved
                 }
                 ("SET", Some("UPDATE")) => TokenKind::ReservedNewlineAfter,
                 ("USING", v) if v != Some("MERGE INTO") && v != Some("DELETE FROM") => {

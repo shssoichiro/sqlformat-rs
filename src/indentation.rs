@@ -17,6 +17,7 @@ pub(crate) struct Indentation<'a> {
 enum IndentType {
     TopLevel,
     BlockLevel,
+    FoldedBlockLevel,
 }
 
 impl<'a> Indentation<'a> {
@@ -29,12 +30,18 @@ impl<'a> Indentation<'a> {
         }
     }
 
-    pub fn get_indent(&self) -> String {
+    pub fn get_indent(&self, folded: bool) -> String {
+        // TODO compute in place?
+        let level = self
+            .indent_types
+            .iter()
+            .copied()
+            .filter(|t| *t != IndentType::FoldedBlockLevel)
+            .count()
+            - if folded { 1 } else { 0 };
         match self.options.indent {
-            Indent::Spaces(num_spaces) => " "
-                .repeat(num_spaces as usize)
-                .repeat(self.indent_types.len()),
-            Indent::Tabs => "\t".repeat(self.indent_types.len()),
+            Indent::Spaces(num_spaces) => " ".repeat(num_spaces as usize).repeat(level),
+            Indent::Tabs => "\t".repeat(level),
         }
     }
 
@@ -43,8 +50,12 @@ impl<'a> Indentation<'a> {
         self.top_level_span.push(span);
     }
 
-    pub fn increase_block_level(&mut self) {
-        self.indent_types.push(IndentType::BlockLevel);
+    pub fn increase_block_level(&mut self, folded: bool) {
+        self.indent_types.push(if folded {
+            IndentType::FoldedBlockLevel
+        } else {
+            IndentType::BlockLevel
+        });
         self.previous.push(Default::default());
     }
 
@@ -56,14 +67,18 @@ impl<'a> Indentation<'a> {
         }
     }
 
-    pub fn decrease_block_level(&mut self) {
+    /// Return true if the block was folded
+    pub fn decrease_block_level(&mut self) -> bool {
+        let mut folded = false;
         while !self.indent_types.is_empty() {
             let kind = self.indent_types.pop();
             self.previous.pop();
+            folded = kind == Some(IndentType::FoldedBlockLevel);
             if kind != Some(IndentType::TopLevel) {
                 break;
             }
         }
+        folded
     }
 
     pub fn reset_indentation(&mut self) {

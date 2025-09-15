@@ -471,7 +471,7 @@ mod tests {
 
     #[test]
     fn it_formats_type_specifiers() {
-        let input = "SELECT id,  ARRAY [] :: UUID [] FROM UNNEST($1  ::  UUID   []);";
+        let input = "SELECT id,  ARRAY [] :: UUID [] FROM UNNEST($1  ::  UUID   []) WHERE $1::UUID[] IS NOT NULL;";
         let options = FormatOptions::default();
         let expected = indoc!(
             "
@@ -479,7 +479,9 @@ mod tests {
               id,
               ARRAY[]::UUID[]
             FROM
-              UNNEST($1::UUID[]);"
+              UNNEST($1::UUID[])
+            WHERE
+              $1::UUID[] IS NOT NULL;"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

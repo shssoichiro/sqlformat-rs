@@ -200,8 +200,19 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_type_specifier(&self, token: &Token<'_>, query: &mut String) {
+        const WHITESPACE_BEFORE: &[TokenKind] = &[
+            TokenKind::Reserved,
+            TokenKind::ReservedNewline,
+            TokenKind::ReservedNewlineAfter,
+        ];
         self.trim_all_spaces_end(query);
         query.push_str(token.value);
+        if self
+            .next_non_whitespace_token(1)
+            .is_some_and(|t| WHITESPACE_BEFORE.contains(&t.kind))
+        {
+            query.push(' ')
+        }
     }
     fn format_block_comment(&mut self, token: &Token<'_>, query: &mut String) {
         self.add_new_line(query);
@@ -560,6 +571,17 @@ impl<'a> Formatter<'a> {
         let index = self.index.checked_sub(idx);
         if let Some(index) = index {
             self.tokens.get(index)
+        } else {
+            None
+        }
+    }
+
+    fn next_non_whitespace_token(&self, idx: usize) -> Option<&Token<'_>> {
+        let index = self.index.checked_add(idx);
+        if let Some(index) = index {
+            self.tokens[index..]
+                .iter()
+                .find(|t| t.kind != TokenKind::Whitespace)
         } else {
             None
         }

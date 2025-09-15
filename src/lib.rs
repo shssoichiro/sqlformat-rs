@@ -768,7 +768,7 @@ mod tests {
                 id_registration
               ) (
                 SELECT
-                  IF(
+                  IF (
                     dq.id_discounter_shopping = 2,
                     dq.value,
                     dq.value / 100

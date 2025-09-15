@@ -319,7 +319,10 @@ impl<'a> Formatter<'a> {
             TokenKind::LineComment,
         ];
 
+        const ADD_WHITESPACE_BETWEEN: &[TokenKind] = &[TokenKind::CloseParen, TokenKind::Reserved];
+
         let inlined = self.inline_block.begin_if_possible(self.tokens, self.index);
+        let previous_non_whitespace_token = self.previous_non_whitespace_token(1);
         let fold_in_top_level = !inlined
             && self.options.max_inline_top_level.is_some()
             && self
@@ -339,6 +342,11 @@ impl<'a> Formatter<'a> {
             || !PRESERVE_WHITESPACE_FOR.contains(&previous_token.unwrap().kind)
         {
             self.trim_spaces_end(query);
+        }
+
+        if previous_non_whitespace_token.is_some_and(|t| ADD_WHITESPACE_BETWEEN.contains(&t.kind)) {
+            self.trim_spaces_end(query);
+            query.push(' ');
         }
 
         let value = match (

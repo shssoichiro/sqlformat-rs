@@ -15,9 +15,9 @@ pub(crate) struct Indentation<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum IndentType {
-    TopLevel,
-    BlockLevel,
-    FoldedBlockLevel,
+    Top,
+    Block,
+    FoldedBlock,
 }
 
 impl<'a> Indentation<'a> {
@@ -36,7 +36,7 @@ impl<'a> Indentation<'a> {
             .indent_types
             .iter()
             .copied()
-            .filter(|t| *t != IndentType::FoldedBlockLevel)
+            .filter(|t| *t != IndentType::FoldedBlock)
             .count()
             - if folded { 1 } else { 0 };
         match self.options.indent {
@@ -46,21 +46,21 @@ impl<'a> Indentation<'a> {
     }
 
     pub fn increase_top_level(&mut self, span: SpanInfo) {
-        self.indent_types.push(IndentType::TopLevel);
+        self.indent_types.push(IndentType::Top);
         self.top_level_span.push(span);
     }
 
     pub fn increase_block_level(&mut self, folded: bool) {
         self.indent_types.push(if folded {
-            IndentType::FoldedBlockLevel
+            IndentType::FoldedBlock
         } else {
-            IndentType::BlockLevel
+            IndentType::Block
         });
         self.previous.push(Default::default());
     }
 
     pub fn decrease_top_level(&mut self) {
-        if self.indent_types.last() == Some(&IndentType::TopLevel) {
+        if self.indent_types.last() == Some(&IndentType::Top) {
             self.indent_types.pop();
             self.top_level_span.pop();
             self.previous.pop();
@@ -73,8 +73,8 @@ impl<'a> Indentation<'a> {
         while !self.indent_types.is_empty() {
             let kind = self.indent_types.pop();
             self.previous.pop();
-            folded = kind == Some(IndentType::FoldedBlockLevel);
-            if kind != Some(IndentType::TopLevel) {
+            folded = kind == Some(IndentType::FoldedBlock);
+            if kind != Some(IndentType::Top) {
                 break;
             }
         }

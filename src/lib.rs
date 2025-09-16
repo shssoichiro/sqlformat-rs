@@ -2480,7 +2480,7 @@ from
               SELECT true
               FROM bar
               WHERE bar.foo = $99
-              AND bar.foo > $100
+                AND bar.foo > $100
             ),
             c = CASE WHEN $6 THEN NULL ELSE COALESCE($7, c) END,
             d = CASE

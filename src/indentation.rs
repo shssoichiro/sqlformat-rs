@@ -76,6 +76,8 @@ impl<'a> Indentation<'a> {
             folded = kind == Some(IndentType::FoldedBlock);
             if kind != Some(IndentType::Top) {
                 break;
+            } else {
+                self.top_level_span.pop();
             }
         }
         folded

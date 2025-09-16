@@ -338,6 +338,13 @@ impl<'a> Formatter<'a> {
                 .max_inline_arguments
                 .is_none_or(|limit| limit < self.indentation.span())
         {
+            // We inlined something to the top level let's increase the indentation now
+            if let Some((_, s)) = self.indentation.previous_top_level_reserved() {
+                if !s.newline_after {
+                    self.indentation.increase_top_level(s.clone());
+                }
+            }
+
             self.add_new_line(query);
         } else {
             self.trim_spaces_end(query);

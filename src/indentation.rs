@@ -15,8 +15,9 @@ pub(crate) struct Indentation<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum IndentType {
-    TopLevel,
-    BlockLevel,
+    Top,
+    Block,
+    FoldedBlock,
 }
 
 impl<'a> Indentation<'a> {
@@ -29,41 +30,55 @@ impl<'a> Indentation<'a> {
         }
     }
 
-    pub fn get_indent(&self) -> String {
+    pub fn get_indent(&self, folded: bool) -> String {
+        // TODO compute in place?
+        let level = self
+            .indent_types
+            .iter()
+            .copied()
+            .filter(|t| *t != IndentType::FoldedBlock)
+            .count()
+            - if folded { 1 } else { 0 };
         match self.options.indent {
-            Indent::Spaces(num_spaces) => " "
-                .repeat(num_spaces as usize)
-                .repeat(self.indent_types.len()),
-            Indent::Tabs => "\t".repeat(self.indent_types.len()),
+            Indent::Spaces(num_spaces) => " ".repeat(num_spaces as usize).repeat(level),
+            Indent::Tabs => "\t".repeat(level),
         }
     }
 
     pub fn increase_top_level(&mut self, span: SpanInfo) {
-        self.indent_types.push(IndentType::TopLevel);
+        self.indent_types.push(IndentType::Top);
         self.top_level_span.push(span);
     }
 
-    pub fn increase_block_level(&mut self) {
-        self.indent_types.push(IndentType::BlockLevel);
+    pub fn increase_block_level(&mut self, folded: bool) {
+        self.indent_types.push(if folded {
+            IndentType::FoldedBlock
+        } else {
+            IndentType::Block
+        });
         self.previous.push(Default::default());
     }
 
     pub fn decrease_top_level(&mut self) {
-        if self.indent_types.last() == Some(&IndentType::TopLevel) {
+        if self.indent_types.last() == Some(&IndentType::Top) {
             self.indent_types.pop();
             self.top_level_span.pop();
             self.previous.pop();
         }
     }
 
-    pub fn decrease_block_level(&mut self) {
+    /// Return true if the block was folded
+    pub fn decrease_block_level(&mut self) -> bool {
+        let mut folded = false;
         while !self.indent_types.is_empty() {
             let kind = self.indent_types.pop();
             self.previous.pop();
-            if kind != Some(IndentType::TopLevel) {
+            folded = kind == Some(IndentType::FoldedBlock);
+            if kind != Some(IndentType::Top) {
                 break;
             }
         }
+        folded
     }
 
     pub fn reset_indentation(&mut self) {

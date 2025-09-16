@@ -97,10 +97,13 @@ pub enum QueryParams {
     None,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub(crate) struct SpanInfo {
     pub full_span: usize,
-    // potentially comma span info here
+    pub blocks: usize,
+    pub newline_before: bool,
+    pub newline_after: bool,
+    pub arguments: usize,
 }
 
 #[cfg(test)]
@@ -323,6 +326,33 @@ mod tests {
             SELECT
               a, b, c, d, e, f, g, h
             FROM foo;"
+        };
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn inline_single_block_argument() {
+        let input = "SELECT a, b, c FROM ( SELECT (e+f) AS a, (m+o) AS b FROM d) WHERE (a != b) OR (c IS NULL AND a == b)";
+        let options = FormatOptions {
+            max_inline_arguments: Some(10),
+            max_inline_top_level: Some(20),
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            SELECT a, b, c
+            FROM (
+              SELECT
+                (e + f) AS a,
+                (m + o) AS b
+              FROM d
+            )
+            WHERE
+              (a != b)
+              OR (
+                c IS NULL
+                AND a == b
+              )"
         };
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
@@ -688,12 +718,11 @@ mod tests {
             "
             INSERT INTO t(id, a, min, max)
             SELECT input.id, input.a, input.min, input.max
-            FROM
-              (
-                SELECT id, a, min, max
-                FROM foo
-                WHERE a IN ('a', 'b')
-              ) AS input
+            FROM (
+              SELECT id, a, min, max
+              FROM foo
+              WHERE a IN ('a', 'b')
+            ) AS input
             WHERE (SELECT true FROM condition)
             ON CONFLICT ON CONSTRAINT a_id_key DO UPDATE SET
               id = EXCLUDED.id,

@@ -1,5 +1,8 @@
 name: sqlformat
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -20,7 +23,7 @@ jobs:
           - latest-nightly
         include:
           - conf: minimum
-            toolchain: 1.65.0
+            toolchain: 1.84.0
           - conf: latest-stable
             toolchain: stable
           - conf: latest-beta
@@ -34,13 +37,7 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           components: clippy, rustfmt
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry/cache
-          key: ${{ runner.os }}-${{ matrix.conf }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.conf }}-cargo-registry-
+      - uses: Swatinem/rust-cache@v2
       - name: Run rustfmt
         if: matrix.toolchain == 'stable'
         run: |
@@ -50,16 +47,27 @@ jobs:
         uses: actions-rs-plus/clippy-check@v2.3.0
         with:
           args: --all -- -D warnings
-      # FIXME: criterion and its dependencies require a newer version than 1.65, but it is only used for benchmarks.
-      # Is there a way to not have criterion built when we run tests?
-      - name: Run cargo check
-        if: matrix.toolchain == '1.65.0'
-        run: cargo check
       - name: Run tests
-        if: matrix.toolchain != '1.65.0'
         run: cargo test
-      - name: Build benchmarks
-        if: matrix.toolchain == 'stable'
-        run: cargo bench --no-run
       - name: Build docs
         run: cargo doc --no-deps
+  code-coverage:
+    needs: [build-test-unix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo llvm-cov --codecov --output-path codecov.json --ignore-filename-regex tests\.rs
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: codecov.json
+          fail_ci_if_error: false

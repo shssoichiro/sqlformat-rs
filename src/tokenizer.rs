@@ -17,6 +17,7 @@ pub(crate) fn tokenize<'a>(
 ) -> Vec<Token<'a>> {
     let mut tokens: Vec<Token> = Vec::new();
 
+    let mut last_non_whitespace_token = None;
     let mut last_reserved_token = None;
     let mut last_reserved_top_level_token = None;
 
@@ -27,7 +28,7 @@ pub(crate) fn tokenize<'a>(
     // Keep processing the string until it is empty
     while let Ok(mut result) = get_next_token(
         &mut input,
-        tokens.last().cloned(),
+        last_non_whitespace_token.clone(),
         last_reserved_token.clone(),
         last_reserved_top_level_token.clone(),
         named_placeholders,
@@ -49,6 +50,10 @@ pub(crate) fn tokenize<'a>(
             _ => {}
         }
 
+        if result.kind != TokenKind::Whitespace {
+            last_non_whitespace_token = Some(result.clone());
+        }
+
         tokens.push(result);
 
         if let Ok(Some(result)) = opt(get_whitespace_token).parse_next(&mut input) {
@@ -64,17 +69,20 @@ pub(crate) struct Token<'a> {
     pub value: &'a str,
     // Only used for placeholder--there is a reason this isn't on the enum
     pub key: Option<PlaceholderKind<'a>>,
+    /// Used to group the behaviour of variants of tokens
+    pub alias: &'a str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TokenKind {
-    DoubleColon,
+    TypeSpecifier,
     Whitespace,
     String,
     Reserved,
     ReservedTopLevel,
     ReservedTopLevelNoIndent,
     ReservedNewline,
+    ReservedNewlineAfter,
     Operator,
     OpenParen,
     CloseParen,
@@ -119,6 +127,7 @@ fn get_next_token<'a>(
 ) -> Result<Token<'a>> {
     alt((
         get_comment_token,
+        |input: &mut _| get_type_specifier_token(input, previous_token.clone()),
         get_string_token,
         get_open_paren_token,
         get_close_paren_token,
@@ -131,7 +140,6 @@ fn get_next_token<'a>(
                 last_reserved_top_level_token.clone(),
             )
         },
-        get_double_colon_token,
         get_operator_token,
         |input: &mut _| get_placeholder_token(input, named_placeholders),
         get_word_token,
@@ -139,12 +147,30 @@ fn get_next_token<'a>(
     ))
     .parse_next(input)
 }
-fn get_double_colon_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
-    "::".parse_next(input).map(|token| Token {
-        kind: TokenKind::DoubleColon,
-        value: token,
-        key: None,
-    })
+fn get_type_specifier_token<'i>(
+    input: &mut &'i str,
+    previous_token: Option<Token<'i>>,
+) -> Result<Token<'i>> {
+    if previous_token.is_some_and(|token| {
+        ![
+            TokenKind::CloseParen,
+            TokenKind::Placeholder,
+            TokenKind::Reserved,
+            TokenKind::String,
+            TokenKind::TypeSpecifier,
+            TokenKind::Word,
+        ]
+        .contains(&token.kind)
+    }) {
+        fail.parse_next(input)
+    } else {
+        alt(("::", "[]")).parse_next(input).map(|token| Token {
+            kind: TokenKind::TypeSpecifier,
+            value: token,
+            key: None,
+            alias: token,
+        })
+    }
 }
 fn get_whitespace_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     take_while(1.., char::is_whitespace)
@@ -153,6 +179,7 @@ fn get_whitespace_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Whitespace,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -169,6 +196,7 @@ fn get_comment_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -227,6 +255,7 @@ fn get_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         kind: TokenKind::String,
         value: token,
         key: None,
+        alias: token,
     })
 }
 
@@ -246,6 +275,7 @@ fn get_placeholder_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         kind: TokenKind::String,
         value: token,
         key: None,
+        alias: token,
     })
 }
 
@@ -256,6 +286,7 @@ fn get_open_paren_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::OpenParen,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -266,6 +297,7 @@ fn get_close_paren_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::CloseParen,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -309,6 +341,7 @@ fn get_indexed_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             } else {
                 None
             },
+            alias: token,
         })
 }
 
@@ -327,6 +360,7 @@ fn get_ident_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i
                 kind: TokenKind::Placeholder,
                 value: token,
                 key: Some(PlaceholderKind::Named(index)),
+                alias: token,
             }
         })
 }
@@ -342,6 +376,7 @@ fn get_string_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'
                 kind: TokenKind::Placeholder,
                 value: token,
                 key: Some(PlaceholderKind::Named(index)),
+                alias: token,
             }
         })
 }
@@ -358,6 +393,7 @@ fn get_number_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Number,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -396,6 +432,7 @@ fn get_reserved_word_token<'a>(
 
     alt((
         get_top_level_reserved_token(last_reserved_top_level_token),
+        get_newline_after_reserved_token(),
         get_newline_reserved_token(last_reserved_token),
         get_join_token(),
         get_top_level_reserved_token_no_indent,
@@ -412,6 +449,12 @@ fn get_uc_words(input: &str, words: usize) -> String {
         .collect::<Vec<&str>>()
         .join(" ")
         .to_ascii_uppercase()
+}
+
+fn finalize<'a>(input: &mut &'a str, token: &str) -> &'a str {
+    let final_word = token.split_whitespace().last().unwrap_or(token);
+    let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap_or(0) + final_word.len();
+    input.next_slice(input_end_pos)
 }
 
 fn get_top_level_reserved_token<'a>(
@@ -432,6 +475,24 @@ fn get_top_level_reserved_token<'a>(
                 terminated("ALTER COLUMN", end_of_word),
                 terminated("ALTER TABLE", end_of_word),
             ))
+            .parse_next(&mut uc_input),
+
+            'C' => terminated(
+                (
+                    "CREATE ",
+                    opt(alt((
+                        "UNLOGGED ",
+                        (
+                            alt(("GLOBAL ", "LOCAL ")),
+                            opt(alt(("TEMPORARY ", "TEMP "))),
+                        )
+                            .take(),
+                    ))),
+                    "TABLE",
+                )
+                    .take(),
+                end_of_word,
+            )
             .parse_next(&mut uc_input),
 
             'D' => terminated("DELETE FROM", end_of_word).parse_next(&mut uc_input),
@@ -460,9 +521,19 @@ fn get_top_level_reserved_token<'a>(
 
             'L' => terminated("LIMIT", end_of_word).parse_next(&mut uc_input),
 
-            'M' => terminated("MODIFY", end_of_word).parse_next(&mut uc_input),
+            'M' => alt((
+                terminated("MODIFY", end_of_word),
+                terminated("MERGE INTO", end_of_word),
+            ))
+            .parse_next(&mut uc_input),
 
-            'O' => terminated("ORDER BY", end_of_word).parse_next(&mut uc_input),
+            'O' => alt((
+                terminated("ORDER BY", end_of_word),
+                terminated("ON CONFLICT", end_of_word),
+            ))
+            .parse_next(&mut uc_input),
+
+            'P' => terminated("PARTITION BY", end_of_word).parse_next(&mut uc_input),
 
             'R' => terminated("RETURNING", end_of_word).parse_next(&mut uc_input),
 
@@ -476,36 +547,56 @@ fn get_top_level_reserved_token<'a>(
             ))
             .parse_next(&mut uc_input),
 
-            'U' => terminated("UPDATE", end_of_word).parse_next(&mut uc_input),
+            'U' => alt((
+                terminated("UPDATE", end_of_word),
+                terminated("USING", end_of_word),
+            ))
+            .parse_next(&mut uc_input),
 
             'V' => terminated("VALUES", end_of_word).parse_next(&mut uc_input),
 
-            'W' => terminated("WHERE", end_of_word).parse_next(&mut uc_input),
+            'W' => alt((
+                terminated("WHERE", end_of_word),
+                terminated("WINDOW", end_of_word),
+            ))
+            .parse_next(&mut uc_input),
 
             // If the first character doesn't match any of our keywords, fail early
             _ => Err(ParserError::from_input(&uc_input)),
         };
 
         if let Ok(token) = result {
-            let final_word = token.split_whitespace().last().unwrap_or(token);
-            let input_end_pos =
-                input.to_ascii_uppercase().find(final_word).unwrap_or(0) + final_word.len();
-            let token = input.next_slice(input_end_pos);
+            let token = finalize(input, token);
 
-            let kind = if token == "EXCEPT"
-                && last_reserved_top_level_token.is_some()
-                && last_reserved_top_level_token.as_ref().unwrap().value == "SELECT"
-            {
-                // If the query state doesn't allow EXCEPT, treat it as a regular word
-                TokenKind::Word
+            let kind = match (
+                token,
+                last_reserved_top_level_token.as_ref().map(|v| v.alias),
+            ) {
+                ("EXCEPT", Some("SELECT")) =>
+                // If the query state doesn't allow EXCEPT, treat it as a reserved word
+                {
+                    TokenKind::Reserved
+                }
+                ("SET", Some("UPDATE")) => TokenKind::ReservedNewlineAfter,
+                ("USING", v) if v != Some("MERGE INTO") && v != Some("DELETE FROM") => {
+                    TokenKind::Reserved
+                }
+                _ => TokenKind::ReservedTopLevel,
+            };
+
+            let alias = if token.starts_with("CREATE") {
+                "CREATE"
+            } else if token.starts_with("SELECT") {
+                "SELECT"
             } else {
-                TokenKind::ReservedTopLevel
+                token
             };
 
             Ok(Token {
                 kind,
                 value: token,
                 key: None,
+                alias,
             })
         } else {
             Err(ParserError::from_input(input))
@@ -569,6 +660,33 @@ fn get_join_token<'a>() -> impl Parser<&'a str, Token<'a>, ContextError> {
                 kind,
                 value: token,
                 key: None,
+                alias: token,
+            })
+        } else {
+            Err(ParserError::from_input(input))
+        }
+    }
+}
+
+fn get_newline_after_reserved_token<'a>() -> impl Parser<&'a str, Token<'a>, ContextError> {
+    move |input: &mut &'a str| {
+        let uc_input: String = get_uc_words(input, 3);
+        let mut uc_input = uc_input.as_str();
+
+        let mut on_conflict = alt((
+            terminated("DO NOTHING", end_of_word),
+            terminated("DO UPDATE SET", end_of_word),
+        ));
+
+        let result: Result<&str> = on_conflict.parse_next(&mut uc_input);
+
+        if let Ok(token) = result {
+            let value = finalize(input, token);
+            Ok(Token {
+                kind: TokenKind::ReservedNewlineAfter,
+                value,
+                key: None,
+                alias: value,
             })
         } else {
             Err(ParserError::from_input(input))
@@ -610,10 +728,7 @@ fn get_newline_reserved_token<'a>(
         let result: Result<&str> = alt((operators, alter_table_actions)).parse_next(&mut uc_input);
 
         if let Ok(token) = result {
-            let final_word = token.split(' ').next_back().unwrap();
-            let input_end_pos =
-                input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
-            let token = input.next_slice(input_end_pos);
+            let token = finalize(input, token);
             let kind = if token == "AND"
                 && last_reserved_token.is_some()
                 && last_reserved_token.as_ref().unwrap().value == "BETWEEN"
@@ -627,6 +742,7 @@ fn get_newline_reserved_token<'a>(
                 kind,
                 value: token,
                 key: None,
+                alias: token,
             })
         } else {
             Err(ParserError::from_input(input))
@@ -651,13 +767,12 @@ fn get_top_level_reserved_token_no_indent<'i>(input: &mut &'i str) -> Result<Tok
     ))
     .parse_next(&mut uc_input);
     if let Ok(token) = result {
-        let final_word = token.split(' ').next_back().unwrap();
-        let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
-        let token = input.next_slice(input_end_pos);
+        let value = finalize(input, token);
         Ok(Token {
             kind: TokenKind::ReservedTopLevelNoIndent,
-            value: token,
+            value,
             key: None,
+            alias: value,
         })
     } else {
         Err(ParserError::from_input(input))
@@ -1018,6 +1133,7 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             terminated("TRUNCATE", end_of_word),
             terminated("TYPE", end_of_word),
             terminated("TYPES", end_of_word),
+            terminated("TBLPROPERTIES", end_of_word),
         ))
         .parse_next(&mut uc_input),
 
@@ -1028,7 +1144,6 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             terminated("UNSIGNED", end_of_word),
             terminated("USAGE", end_of_word),
             terminated("USE", end_of_word),
-            terminated("USING", end_of_word),
         ))
         .parse_next(&mut uc_input),
 
@@ -1056,6 +1171,7 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Reserved,
             value: token,
             key: None,
+            alias: token,
         })
     } else {
         Err(ParserError::from_input(input))
@@ -1067,18 +1183,21 @@ fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     let mut uc_input = uc_input.as_str();
     let result: Result<&str> = alt((
         terminated("CHARACTER SET", end_of_word),
+        terminated("ON CONFLICT", end_of_word),
+        terminated("ON CONSTRAINT", end_of_word),
         terminated("ON DELETE", end_of_word),
         terminated("ON UPDATE", end_of_word),
+        terminated("DISTINCT FROM", end_of_word),
+        terminated("PARTITIONED BY", end_of_word),
     ))
     .parse_next(&mut uc_input);
     if let Ok(token) = result {
-        let final_word = token.split(' ').next_back().unwrap();
-        let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
-        let token = input.next_slice(input_end_pos);
+        let value = finalize(input, token);
         Ok(Token {
             kind: TokenKind::Reserved,
-            value: token,
+            value,
             key: None,
+            alias: value,
         })
     } else {
         Err(ParserError::from_input(input))
@@ -1092,6 +1211,7 @@ fn get_word_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Word,
             value: token,
             key: None,
+            alias: token,
         })
 }
 
@@ -1106,6 +1226,7 @@ fn get_operator_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Operator,
             value: token,
             key: None,
+            alias: token,
         })
         .parse_next(input)
 }
@@ -1117,6 +1238,7 @@ fn get_any_other_char<'i>(input: &mut &'i str) -> Result<Token<'i>> {
             kind: TokenKind::Operator,
             value: token,
             key: None,
+            alias: token,
         })
 }
 

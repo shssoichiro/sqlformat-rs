@@ -1,0 +1,8 @@
+---
+alwaysApply: true
+description: Project Overview
+---
+
+# Project Overview
+
+This project is a Rust library for formatting SQL queries. It is intended to support all mainstream SQL dialects. The crate exposes one interface for consumers, which is the `format` function exported at the top level of the crate.

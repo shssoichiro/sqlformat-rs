@@ -97,10 +97,13 @@ pub enum QueryParams {
     None,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub(crate) struct SpanInfo {
     pub full_span: usize,
-    // potentially comma span info here
+    pub blocks: usize,
+    pub newline_before: bool,
+    pub newline_after: bool,
+    pub arguments: usize,
 }
 
 #[cfg(test)]
@@ -200,6 +203,48 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_over_with_window() {
+        let input =
+            "SELECT id, val, at, SUM(val) OVER win AS cumulative FROM data WINDOW win AS (PARTITION BY id ORDER BY at);";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              id,
+              val,
+              at,
+              SUM(val) OVER win AS cumulative
+            FROM
+              data
+            WINDOW
+              win AS (
+                PARTITION BY
+                  id
+                ORDER BY
+                  at
+              );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_distinct_from() {
+        let input = "SELECT bar IS DISTINCT FROM 'baz', IS NOT DISTINCT FROM 'foo' FROM foo;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              bar IS DISTINCT FROM 'baz',
+              IS NOT DISTINCT FROM 'foo'
+            FROM
+              foo;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn keep_select_arguments_inline() {
         let input = indoc! {
             "
@@ -281,6 +326,33 @@ mod tests {
             SELECT
               a, b, c, d, e, f, g, h
             FROM foo;"
+        };
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn inline_single_block_argument() {
+        let input = "SELECT a, b, c FROM ( SELECT (e+f) AS a, (m+o) AS b FROM d) WHERE (a != b) OR (c IS NULL AND a == b)";
+        let options = FormatOptions {
+            max_inline_arguments: Some(10),
+            max_inline_top_level: Some(20),
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            SELECT a, b, c
+            FROM (
+              SELECT
+                (e + f) AS a,
+                (m + o) AS b
+              FROM d
+            )
+            WHERE
+              (a != b)
+              OR (
+                c IS NULL
+                AND a == b
+              )"
         };
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
@@ -392,6 +464,24 @@ mod tests {
             SELECT
               foo,
               bar;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_type_specifiers() {
+        let input = "SELECT id,  ARRAY [] :: UUID [] FROM UNNEST($1  ::  UUID   []) WHERE $1::UUID[] IS NOT NULL;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              id,
+              ARRAY[]::UUID[]
+            FROM
+              UNNEST($1::UUID[])
+            WHERE
+              $1::UUID[] IS NOT NULL;"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
@@ -615,6 +705,39 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_complex_insert_query() {
+        let input = "
+ INSERT INTO t(id, a, min, max) SELECT input.id, input.a, input.min, input.max FROM ( SELECT id, a, min, max FROM foo WHERE a IN ('a', 'b') ) AS input WHERE (SELECT true FROM condition) ON CONFLICT ON CONSTRAINT a_id_key DO UPDATE SET id = EXCLUDED.id, a = EXCLUDED.severity, min = EXCLUDED.min, max = EXCLUDED.max RETURNING *; ";
+        let max_line = 50;
+        let options = FormatOptions {
+            max_inline_block: max_line,
+            max_inline_arguments: Some(max_line),
+            max_inline_top_level: Some(max_line),
+            ..Default::default()
+        };
+
+        let expected = indoc!(
+            "
+            INSERT INTO t(id, a, min, max)
+            SELECT input.id, input.a, input.min, input.max
+            FROM (
+              SELECT id, a, min, max
+              FROM foo
+              WHERE a IN ('a', 'b')
+            ) AS input
+            WHERE (SELECT true FROM condition)
+            ON CONFLICT ON CONSTRAINT a_id_key DO UPDATE SET
+              id = EXCLUDED.id,
+              a = EXCLUDED.severity,
+              min = EXCLUDED.min,
+              max = EXCLUDED.max
+            RETURNING *;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_keeps_short_parenthesized_list_with_nested_parenthesis_on_single_line() {
         let input = "SELECT (a + b * (c - NOW()));";
         let options = FormatOptions::default();
@@ -647,7 +770,7 @@ mod tests {
                 id_registration
               ) (
                 SELECT
-                  IF(
+                  IF (
                     dq.id_discounter_shopping = 2,
                     dq.value,
                     dq.value / 100
@@ -711,6 +834,26 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_simple_update_query_inlining_set() {
+        let input = "UPDATE Customers SET ContactName='Alfred Schmidt', City='Hamburg' WHERE CustomerName='Alfreds Futterkiste';";
+        let options = FormatOptions {
+            max_inline_top_level: Some(20),
+            max_inline_arguments: Some(10),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            UPDATE Customers SET
+              ContactName = 'Alfred Schmidt',
+              City = 'Hamburg'
+            WHERE
+              CustomerName = 'Alfreds Futterkiste';"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_simple_delete_query() {
         let input = "DELETE FROM Customers WHERE CustomerName='Alfred' AND Phone=5002132;";
         let options = FormatOptions::default();
@@ -718,6 +861,25 @@ mod tests {
             "
             DELETE FROM
               Customers
+            WHERE
+              CustomerName = 'Alfred'
+              AND Phone = 5002132;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_full_delete_query() {
+        let input =
+            "DELETE FROM Customers USING Phonebook WHERE CustomerName='Alfred' AND Phone=5002132;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            DELETE FROM
+              Customers
+            USING
+              Phonebook
             WHERE
               CustomerName = 'Alfred'
               AND Phone = 5002132;"
@@ -1667,13 +1829,10 @@ mod tests {
     #[test]
     fn it_formats_case_when_inside_an_order_by() {
         let input = "SELECT a, created_at FROM b ORDER BY (CASE $3 WHEN 'created_at_asc' THEN created_at END) ASC, (CASE $3 WHEN 'created_at_desc' THEN created_at END) DESC;";
-        let max_line = 120;
+        let max_line = 80;
         let options = FormatOptions {
             max_inline_block: max_line,
             max_inline_arguments: Some(max_line),
-            joins_as_top_level: true,
-            uppercase: Some(true),
-            ignore_case_convert: Some(vec!["status"]),
             ..Default::default()
         };
 
@@ -2337,7 +2496,10 @@ from
 
     #[test]
     fn it_formats_blocks_inline_or_not() {
-        let input = " UPDATE t SET o = ($5 + $6 + $7 + $8),a = CASE WHEN $2
+        let input = " UPDATE t
+
+
+        SET o = ($5 + $6 + $7 + $8),a = CASE WHEN $2
             THEN NULL ELSE COALESCE($3, b) END, b = CASE WHEN $4 THEN NULL ELSE
             COALESCE($5, b) END, s = (SELECT true FROM bar WHERE bar.foo = $99 AND bar.foo > $100),
             c = CASE WHEN $6 THEN NULL ELSE COALESCE($7, c) END,
@@ -2351,8 +2513,7 @@ from
         };
         let expected = indoc!(
             "
-          UPDATE t
-          SET
+          UPDATE t SET
             o = ($5 + $6 + $7 + $8),
             a = CASE WHEN $2 THEN NULL ELSE COALESCE($3, b) END,
             b = CASE WHEN $4 THEN NULL ELSE COALESCE($5, b) END,

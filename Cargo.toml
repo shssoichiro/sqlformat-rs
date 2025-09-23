@@ -1,9 +1,9 @@
 [package]
 name = "sqlformat"
-version = "0.3.5"
+version = "0.4.0"
 authors = ["Josh Holmer <jholmer.in@gmail.com>"]
 edition = "2021"
-rust-version = "1.65"
+rust-version = "1.84"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/shssoichiro/sqlformat-rs"
 repository = "https://github.com/shssoichiro/sqlformat-rs"
@@ -17,7 +17,7 @@ unicode_categories = "0.1.1"
 winnow = { version = "0.7.0", features = ["simd"] }
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = "0.7"
 indoc = "2.0"
 pretty_assertions = "1.4.1"
 

@@ -76,6 +76,7 @@ pub(crate) fn format(
             formatter.format_no_change(token, &mut formatted_query);
             continue;
         }
+
         match token.kind {
             TokenKind::Whitespace => {
                 // ignore (we do our own whitespace formatting)

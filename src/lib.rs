@@ -491,7 +491,10 @@ mod tests {
     #[test]
     fn it_formats_type_specifiers() {
         let input = "SELECT id,  ARRAY [] :: UUID [] FROM UNNEST($1  ::  UUID   []) WHERE $1::UUID[] IS NOT NULL;";
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -501,6 +504,51 @@ mod tests {
               UNNEST($1::UUID[])
             WHERE
               $1::UUID[] IS NOT NULL;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_arrays_as_function_arguments() {
+        let input =
+            "SELECT array_position(ARRAY['sun','mon','tue',  'wed',   'thu','fri',  'sat'], 'mon');";
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              array_position(
+                ARRAY['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+                'mon'
+              );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_arrays_as_values() {
+        let input = " INSERT INTO t VALUES('a', ARRAY[0, 1,2,3], ARRAY[['a','b'],    ['c' ,'d']]);";
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            max_inline_block: 10,
+            max_inline_top_level: Some(50),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            INSERT INTO t
+            VALUES (
+              'a',
+              ARRAY[0, 1, 2, 3],
+              ARRAY[
+                ['a', 'b'],
+                ['c', 'd']
+              ]
+            );"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

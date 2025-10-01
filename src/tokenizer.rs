@@ -461,7 +461,7 @@ fn get_top_level_reserved_token<'a>(
     last_reserved_top_level_token: Option<Token<'a>>,
 ) -> impl Parser<&'a str, Token<'a>, ContextError> {
     move |input: &mut &'a str| {
-        let uc_input: String = get_uc_words(input, 3);
+        let uc_input: String = get_uc_words(input, 4);
         let mut uc_input = uc_input.as_str();
 
         // First peek at the first character to determine which group to check
@@ -502,6 +502,14 @@ fn get_top_level_reserved_token<'a>(
             'F' => alt((
                 terminated("FETCH FIRST", end_of_word),
                 terminated("FROM", end_of_word),
+                terminated(
+                    (
+                        "FOR ",
+                        alt(("UPDATE", "NO KEY UPDATE", "SHARE", "KEY SHARE")),
+                    )
+                        .take(),
+                    end_of_word,
+                ),
             ))
             .parse_next(&mut uc_input),
 

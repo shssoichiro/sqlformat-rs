@@ -444,6 +444,27 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_select_with_for_update_of() {
+        let input: &'static str = "SELECT id FROM users WHERE disabled_at IS NULL FOR UPDATE OF users SKIP LOCKED LIMIT 1";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              id
+            FROM
+              users
+            WHERE
+              disabled_at IS NULL
+            FOR UPDATE
+              OF users SKIP LOCKED
+            LIMIT
+              1"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_limit_with_two_comma_separated_values_on_single_line() {
         let input = "LIMIT 5, 10;";
         let options = FormatOptions::default();

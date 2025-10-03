@@ -380,14 +380,15 @@ impl<'a> Formatter<'a> {
         let previous_non_whitespace_token = self.previous_non_whitespace_token(1);
         let fold_in_top_level = !inlined
             && self.options.max_inline_top_level.is_some()
-            && self
-                .previous_non_whitespace_token(1)
-                .is_some_and(|t| t.kind == TokenKind::ReservedTopLevel)
+            && previous_non_whitespace_token.is_some_and(|t| t.kind == TokenKind::ReservedTopLevel)
             && self
                 .indentation
                 .previous_top_level_reserved()
                 .is_some_and(|(_, span)| {
-                    span.blocks == 1 && span.newline_after && span.arguments == 1
+                    // We can have the two following situations
+                    // top level ( block )
+                    // top level ( block ) AS word (args, ...)
+                    span.blocks <= 2 && span.newline_after && span.arguments == 1
                 });
 
         // Take out the preceding space unless there was whitespace there in the original query
@@ -510,7 +511,7 @@ impl<'a> Formatter<'a> {
 
         if let Some((_, span)) = self.indentation.previous_top_level_reserved() {
             let limit = self.options.max_inline_arguments.unwrap_or(0);
-            if limit > span.full_span {
+            if limit >= span.full_span {
                 return;
             }
         }
@@ -707,18 +708,19 @@ impl<'a> Formatter<'a> {
             full_span += token.value.len();
         }
 
+        let limit = self.options.max_inline_top_level.unwrap_or(0);
         // if we are inside an inline block we decide our behaviour as if were inline
         let block_len = self.inline_block.cur_len();
-        let (newline_before, newline_after) = if block_len > 0 {
-            let limit = self.options.max_inline_top_level.unwrap_or(0);
-            (limit < block_len, limit < full_span)
+
+        let newline_before = block_len == 0 || limit < block_len;
+
+        // if we are going to format a list of arguments take in account also the limit for
+        // arguments
+        let arguments_limit = self.options.max_inline_arguments.unwrap_or(0);
+        let newline_after = if arguments > 1 && arguments_limit != 0 {
+            arguments_limit.min(limit) < full_span
         } else {
-            (
-                true,
-                self.options
-                    .max_inline_top_level
-                    .is_none_or(|limit| limit < full_span),
-            )
+            limit < full_span
         };
 
         SpanInfo {

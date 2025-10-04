@@ -73,7 +73,7 @@ pub(crate) struct Token<'a> {
     pub alias: &'a str,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum TokenKind {
     TypeSpecifier,
     Whitespace,

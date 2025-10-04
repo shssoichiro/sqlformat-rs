@@ -15,6 +15,9 @@ mod inline_block;
 mod params;
 mod tokenizer;
 
+#[cfg(feature = "debug")]
+mod debug;
+
 /// Formats whitespace in a SQL string to make it easier to read.
 /// Optionally replaces parameter placeholders with `params`.
 pub fn format(query: &str, params: &QueryParams, options: &FormatOptions) -> String {

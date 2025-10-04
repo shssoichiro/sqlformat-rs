@@ -139,6 +139,43 @@ pub(crate) fn format(
                 }
             },
         }
+
+        #[cfg(feature = "debug")]
+        {
+            use crate::debug::*;
+            let b = anstyle::Style::new().bold();
+            let k = b.fg_color(Some(token.kind.to_color().into()));
+            let rk = k.render_reset();
+            let k = k.render();
+            let d = anstyle::Style::new().dimmed();
+            let rd = d.render_reset();
+            let d = d.render();
+
+            let kind = format!("{:?}", token.kind);
+
+            let mut lines = formatted_query
+                .lines()
+                .rev()
+                .filter(|l| !l.trim().is_empty());
+            let line = lines.next().unwrap_or(formatted_query.as_str());
+            let value = match token.kind {
+                TokenKind::Whitespace => {
+                    let s = token
+                        .value
+                        .chars()
+                        .map(|c| match c {
+                            '\n' => Cow::Borrowed(r"\n"),
+                            '\t' => Cow::Borrowed(r"\t"),
+                            '\r' => Cow::Borrowed(r"\r"),
+                            _ => c.to_string().into(),
+                        })
+                        .collect::<String>();
+                    s.into()
+                }
+                _ => Cow::Borrowed(token.value),
+            };
+            anstream::eprintln!("{k}{:21}{rk}: {d}{:50}{rd} {line}", kind, value);
+        }
     }
     formatted_query.trim().to_string()
 }

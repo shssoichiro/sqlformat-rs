@@ -332,17 +332,28 @@ impl<'a> Formatter<'a> {
     }
 
     fn format_newline_reserved_word(&mut self, token: &Token<'_>, query: &mut String) {
-        if !self.inline_block.is_active()
-            && self
-                .options
-                .max_inline_arguments
-                .is_none_or(|limit| limit < self.indentation.span())
+        // line comments force a newline
+        let after_line_comment = self
+            .previous_non_whitespace_token(1)
+            .is_some_and(|t| t.kind == TokenKind::LineComment);
+
+        if after_line_comment
+            || !self.inline_block.is_active()
+                && self
+                    .options
+                    .max_inline_arguments
+                    .is_none_or(|limit| limit < self.indentation.span())
         {
             // We inlined something to the top level let's increase the indentation now
             if let Some((_, s)) = self.indentation.previous_top_level_reserved() {
                 if !s.newline_after {
                     self.indentation.increase_top_level(s.clone());
                 }
+            }
+
+            // let's undo the line comment indentation
+            if after_line_comment {
+                self.trim_spaces_end(query);
             }
 
             self.add_new_line(query);

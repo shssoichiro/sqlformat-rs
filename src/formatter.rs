@@ -76,6 +76,7 @@ pub(crate) fn format(
             formatter.format_no_change(token, &mut formatted_query);
             continue;
         }
+
         match token.kind {
             TokenKind::Whitespace => {
                 // ignore (we do our own whitespace formatting)
@@ -386,7 +387,8 @@ impl<'a> Formatter<'a> {
         ];
 
         const ADD_WHITESPACE_BETWEEN: &[TokenKind] = &[TokenKind::CloseParen, TokenKind::Reserved];
-
+        const BEFORE_ARRAY: &[TokenKind] =
+            &[TokenKind::CloseParen, TokenKind::Word, TokenKind::Reserved];
         let inlined = self.inline_block.begin_if_possible(self.tokens, self.index);
         let previous_non_whitespace_token = self.previous_non_whitespace_token(1);
         let fold_in_top_level = !inlined
@@ -405,13 +407,16 @@ impl<'a> Formatter<'a> {
         // Take out the preceding space unless there was whitespace there in the original query
         // or another opening parens or line comment
         let previous_token = self.previous_token(1);
-        if previous_token.is_none()
-            || !PRESERVE_WHITESPACE_FOR.contains(&previous_token.unwrap().kind)
+        if previous_token.is_none_or(|t| !PRESERVE_WHITESPACE_FOR.contains(&t.kind))
+            || previous_non_whitespace_token
+                .is_some_and(|t| token.value == "[" && BEFORE_ARRAY.contains(&t.kind))
         {
             self.trim_spaces_end(query);
         }
 
-        if previous_non_whitespace_token.is_some_and(|t| ADD_WHITESPACE_BETWEEN.contains(&t.kind)) {
+        if previous_non_whitespace_token
+            .is_some_and(|t| token.value != "[" && ADD_WHITESPACE_BETWEEN.contains(&t.kind))
+        {
             self.trim_spaces_end(query);
             query.push(' ');
         }

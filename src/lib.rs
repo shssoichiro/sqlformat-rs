@@ -27,6 +27,17 @@ pub fn format(query: &str, params: &QueryParams, options: &FormatOptions) -> Str
     formatter::format(&tokens, params, options)
 }
 
+/// The SQL dialect to use. This affects parsing of special characters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dialect {
+    /// Generic SQL syntax, most dialect-specific constructs are disabled
+    Generic,
+    /// Enables array syntax (`[`, `]`) and operators
+    PostgreSql,
+    /// Enables `[bracketed identifiers]` and `@variables`
+    SQLServer,
+}
+
 /// Options for controlling how the library formats SQL
 #[derive(Debug, Clone)]
 pub struct FormatOptions<'a> {
@@ -68,6 +79,10 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: false,
     pub joins_as_top_level: bool,
+    /// Tell the SQL dialect to use
+    ///
+    /// Default: Generic
+    pub dialect: Dialect,
 }
 
 impl<'a> Default for FormatOptions<'a> {
@@ -82,6 +97,7 @@ impl<'a> Default for FormatOptions<'a> {
             max_inline_arguments: None,
             max_inline_top_level: None,
             joins_as_top_level: false,
+            dialect: Dialect::Generic,
         }
     }
 }
@@ -496,7 +512,10 @@ mod tests {
     #[test]
     fn it_formats_type_specifiers() {
         let input = "SELECT id,  ARRAY [] :: UUID [] FROM UNNEST($1  ::  UUID   []) WHERE $1::UUID[] IS NOT NULL;";
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -511,6 +530,66 @@ mod tests {
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
+    #[test]
+    fn it_formats_arrays_as_function_arguments() {
+        let input =
+            "SELECT array_position(ARRAY['sun','mon','tue',  'wed',   'thu','fri',  'sat'], 'mon');";
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              array_position(
+                ARRAY['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+                'mon'
+              );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_arrays_as_values() {
+        let input = " INSERT INTO t VALUES('a', ARRAY[0, 1,2,3], ARRAY[['a','b'],    ['c' ,'d']]);";
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            max_inline_block: 10,
+            max_inline_top_level: Some(50),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            INSERT INTO t
+            VALUES (
+              'a',
+              ARRAY[0, 1, 2, 3],
+              ARRAY[
+                ['a', 'b'],
+                ['c', 'd']
+              ]
+            );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_array_index_notation() {
+        let input = "SELECT a [ 1 ] + b [ 2 ] [   5+1 ] > c [3] ;";
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              a[1] + b[2][5 + 1] > c[3];"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
     #[test]
     fn it_formats_limit_of_single_value_and_offset() {
         let input = "LIMIT 5 OFFSET 8;";
@@ -1349,7 +1428,10 @@ mod tests {
     #[test]
     fn it_recognizes_bracketed_strings() {
         let inputs = ["[foo JOIN bar]", "[foo ]] JOIN bar]"];
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::SQLServer,
+            ..Default::default()
+        };
         for input in &inputs {
             assert_eq!(&format(input, &QueryParams::None, &options), input);
         }
@@ -1359,7 +1441,10 @@ mod tests {
     fn it_recognizes_at_variables() {
         let input =
             "SELECT @variable, @a1_2.3$, @'var name', @\"var name\", @`var name`, @[var name];";
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::SQLServer,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -1384,7 +1469,10 @@ mod tests {
             ("var name".to_string(), "'var value'".to_string()),
             ("var\\name".to_string(), "'var\\ value'".to_string()),
         ];
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::SQLServer,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -1407,7 +1495,10 @@ mod tests {
     fn it_recognizes_colon_variables() {
         let input =
             "SELECT :variable, :a1_2.3$, :'var name', :\"var name\", :`var name`, :[var name];";
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::SQLServer,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -1440,7 +1531,10 @@ mod tests {
                 "'super weird value'".to_string(),
             ),
         ];
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::SQLServer,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT

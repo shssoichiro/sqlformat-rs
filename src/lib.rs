@@ -27,14 +27,14 @@ pub fn format(query: &str, params: &QueryParams, options: &FormatOptions) -> Str
     formatter::format(&tokens, params, options)
 }
 
-/// The SQL dialect to use
+/// The SQL dialect to use. This affects parsing of special characters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Dialect {
-    /// Best effort, most dialect-specific constructs are disabled
+    /// Generic SQL syntax, most dialect-specific constructs are disabled
     Generic,
-    /// It considers array notations
+    /// Enables array syntax (`[`, `]`) and operators
     PostgreSql,
-    /// It uses the `[brakets to quote]` notation
+    /// Enables `[bracketed identifiers]` and `@variables`
     SQLServer,
 }
 

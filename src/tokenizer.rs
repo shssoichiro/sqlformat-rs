@@ -488,35 +488,61 @@ fn get_top_level_reserved_token<'a>(
         // First peek at the first character to determine which group to check
         let first_char = peek(any).parse_next(input)?.to_ascii_uppercase();
 
+        let create_or_replace = (
+            "AGGREGATE",
+            "FUNCTION",
+            "LANGUAGE",
+            "PROCEDURE",
+            "RULE",
+            "TRIGGER",
+            "VIEW",
+        );
+
+        let alterable_or_droppable = alt((alt(create_or_replace), "TABLE", "INDEX"));
+        let create_or_replace = alt(create_or_replace);
+
         // Match keywords based on their first letter
         let result: Result<&str> = match first_char {
             'A' => alt((
                 terminated("ADD", end_of_word),
                 terminated("AFTER", end_of_word),
-                terminated("ALTER COLUMN", end_of_word),
-                terminated("ALTER TABLE", end_of_word),
+                terminated(("ALTER ", alterable_or_droppable).take(), end_of_word),
             ))
             .parse_next(&mut uc_input),
 
             'C' => terminated(
                 (
                     "CREATE ",
-                    opt(alt((
-                        "UNLOGGED ",
+                    alt((
+                        create_or_replace,
+                        (opt("UNIQUE "), "INDEX").take(),
                         (
-                            alt(("GLOBAL ", "LOCAL ")),
-                            opt(alt(("TEMPORARY ", "TEMP "))),
+                            opt(alt((
+                                "UNLOGGED ",
+                                (
+                                    alt(("GLOBAL ", "LOCAL ")),
+                                    opt(alt(("TEMPORARY ", "TEMP "))),
+                                )
+                                    .take(),
+                            ))),
+                            "TABLE",
                         )
                             .take(),
-                    ))),
-                    "TABLE",
+                    )),
                 )
                     .take(),
                 end_of_word,
             )
             .parse_next(&mut uc_input),
 
-            'D' => terminated("DELETE FROM", end_of_word).parse_next(&mut uc_input),
+            'D' => alt((
+                terminated("DELETE FROM", end_of_word),
+                terminated(
+                    ("DROP ", alterable_or_droppable, opt(" IF EXISTS")).take(),
+                    end_of_word,
+                ),
+            ))
+            .parse_next(&mut uc_input),
 
             'E' => terminated("EXCEPT", end_of_word).parse_next(&mut uc_input),
 

@@ -661,6 +661,46 @@ mod tests {
     }
 
     #[test]
+    fn it_does_format_drop() {
+        let input = indoc!(
+            "
+                DROP INDEX IF EXISTS idx_a;
+                DROP INDEX IF EXISTS idx_b;
+                "
+        );
+
+        let options = FormatOptions {
+            ..Default::default()
+        };
+
+        let expected = indoc!(
+            "
+                DROP INDEX IF EXISTS
+                  idx_a;
+                DROP INDEX IF EXISTS
+                  idx_b;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+
+        let input = indoc!(
+            r#"
+                -- comment
+                DROP TABLE IF EXISTS "public"."table_name";
+                "#
+        );
+
+        let expected = indoc!(
+            r#"
+                -- comment
+                DROP TABLE IF EXISTS
+                  "public"."table_name";"#
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_select_query_with_inner_join() {
         let input = indoc!(
             "
@@ -995,8 +1035,12 @@ mod tests {
     fn it_formats_simple_drop_query() {
         let input = "DROP TABLE IF EXISTS admin_role;";
         let options = FormatOptions::default();
-
-        assert_eq!(format(input, &QueryParams::None, &options), input);
+        let output = indoc!(
+            "
+            DROP TABLE IF EXISTS
+              admin_role;"
+        );
+        assert_eq!(format(input, &QueryParams::None, &options), output);
     }
 
     #[test]
@@ -1418,8 +1462,7 @@ mod tests {
             "
             ALTER TABLE
               supplier
-            ALTER COLUMN
-              supplier_name VARCHAR(100) NOT NULL;"
+              ALTER COLUMN supplier_name VARCHAR(100) NOT NULL;"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

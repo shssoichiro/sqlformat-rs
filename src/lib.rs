@@ -555,6 +555,21 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_array_index_notation() {
+        let input = "SELECT a [ 1 ] + b [ 2 ] [   5+1 ] > c [3] ;";
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              a[1] + b[2][5 + 1] > c[3];"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+    #[test]
     fn it_formats_limit_of_single_value_and_offset() {
         let input = "LIMIT 5 OFFSET 8;";
         let options = FormatOptions::default();

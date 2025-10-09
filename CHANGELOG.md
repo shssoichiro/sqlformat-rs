@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 0.5.0
+
+- feat!: Improve array support (#106)
+- feat: Add initial debugging capabilities
+- feat: Support PostgreSQL row-level locking syntax (FOR UPDATE, FOR SHARE) (#108)
+- fix: More inline formatting edge cases (#109)
+- fix: Type specifiers after numeric literals (#108)
+
 ## Version 0.4.0
 
 - feat!: More formatting options (#78)

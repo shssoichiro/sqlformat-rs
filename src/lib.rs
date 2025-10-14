@@ -1469,6 +1469,29 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_alter_table_add_and_drop() {
+        let input = r#"ALTER TABLE "public"."event" DROP CONSTRAINT "validate_date", ADD CONSTRAINT "validate_date" CHECK (end_date IS NULL
+            OR (start_date IS NOT NULL AND end_date > start_date));"#;
+
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            r#"
+            ALTER TABLE
+              "public"."event"
+              DROP CONSTRAINT "validate_date",
+              ADD CONSTRAINT "validate_date" CHECK (
+                end_date IS NULL
+                OR (
+                  start_date IS NOT NULL
+                  AND end_date > start_date
+                )
+              );"#
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_recognizes_bracketed_strings() {
         let inputs = ["[foo JOIN bar]", "[foo ]] JOIN bar]"];
         let options = FormatOptions {
@@ -2239,8 +2262,7 @@ mod tests {
             -- 自动加载数据到 Hive 分区中
             ALTER TABLE
                 sales_data
-            ADD
-                PARTITION (sale_year = '2024', sale_month = '08') LOCATION '/user/hive/warehouse/sales_data/2024/08';"
+                ADD PARTITION (sale_year = '2024', sale_month = '08') LOCATION '/user/hive/warehouse/sales_data/2024/08';"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

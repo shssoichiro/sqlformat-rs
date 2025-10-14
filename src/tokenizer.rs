@@ -504,7 +504,6 @@ fn get_top_level_reserved_token<'a>(
         // Match keywords based on their first letter
         let result: Result<&str> = match first_char {
             'A' => alt((
-                terminated("ADD", end_of_word),
                 terminated("AFTER", end_of_word),
                 terminated(("ALTER ", alterable_or_droppable).take(), end_of_word),
             ))

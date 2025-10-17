@@ -173,6 +173,7 @@ pub(crate) fn format(
                         .collect::<String>();
                     s.into()
                 }
+                TokenKind::Placeholder => format!("{} / {:?}", token.value, token.key).into(),
                 _ => Cow::Borrowed(token.value),
             };
             anstream::eprintln!("{k}{:21}{rk}: {d}{:50}{rd} {line}", kind, value);

@@ -1765,6 +1765,29 @@ mod tests {
     }
 
     #[test]
+    fn it_recognizes_braced_placeholders_with_param_values() {
+        let input = "SELECT {a}, {b}, {c};";
+        let params = vec![
+            ("a".to_string(), "first".to_string()),
+            ("b".to_string(), "second".to_string()),
+            ("c".to_string(), "third".to_string()),
+        ];
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              first,
+              second,
+              third;"
+        );
+
+        assert_eq!(
+            format(input, &QueryParams::Named(params), &options),
+            expected
+        );
+    }
+
+    #[test]
     fn it_formats_query_with_go_batch_separator() {
         let input = "SELECT 1 GO SELECT 2";
         let params = vec![

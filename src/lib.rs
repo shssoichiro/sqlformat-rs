@@ -9,7 +9,7 @@
 // This lint is overly pedantic and annoying
 #![allow(clippy::needless_lifetimes)]
 
-use bon::{builder, Builder};
+use bon::{bon, builder, Builder};
 
 mod formatter;
 mod indentation;
@@ -74,6 +74,27 @@ impl<'a> FormatOptions<'a> {
     fn format(&self, query: &str) -> String {
         let tokens = tokenizer::tokenize(query, self.params.is_named(), self);
         formatter::format(&tokens, &self.params, self)
+    }
+}
+
+#[bon]
+impl<'a> FormatOptions<'a> {
+    /// Use the FormatOptions with different params
+    #[builder(
+        finish_fn(
+            name = format,
+            doc {
+                /// Format the SQL query string
+            }
+        )
+    )]
+    pub fn with_params(
+        &self,
+        #[builder(start_fn, into)] params: QueryParams,
+        #[builder(finish_fn)] query: &str,
+    ) -> String {
+        let tokens = tokenizer::tokenize(query, params.is_named(), self);
+        formatter::format(&tokens, &params, self)
     }
 }
 

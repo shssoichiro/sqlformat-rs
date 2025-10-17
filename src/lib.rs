@@ -37,7 +37,7 @@ pub enum Dialect {
 pub struct FormatOptions<'a> {
     /// Controls the type and length of indentation to use
     ///
-    #[builder(default)]
+    #[builder(default, into)]
     indent: Indent,
     /// When set, changes reserved keywords to ALL CAPS
     uppercase: Option<bool>,
@@ -119,6 +119,12 @@ pub enum Indent {
     Tabs,
 }
 
+impl From<u8> for Indent {
+    fn from(value: u8) -> Self {
+        Self::Spaces(value)
+    }
+}
+
 impl Default for Indent {
     fn default() -> Self {
         Self::Spaces(2)
@@ -190,7 +196,7 @@ mod tests {
     #[test]
     fn it_uses_given_indent_config_for_indentation() {
         let input = "SELECT count(*),Column1 FROM Table1;";
-        let options = FormatOptions::builder().indent(Indent::Spaces(4));
+        let options = FormatOptions::builder().indent(4);
         let expected = indoc!(
             "
             SELECT

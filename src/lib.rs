@@ -9,6 +9,8 @@
 // This lint is overly pedantic and annoying
 #![allow(clippy::needless_lifetimes)]
 
+use std::borrow::Cow;
+
 use bon::{bon, builder, Builder};
 
 mod formatter;
@@ -66,7 +68,7 @@ pub struct FormatOptions<'a> {
     dialect: Dialect,
     /// Replacements for the placeholders in the query
     #[builder(default, into)]
-    params: QueryParams,
+    params: QueryParams<'a>,
 }
 
 impl<'a> FormatOptions<'a> {
@@ -88,9 +90,9 @@ impl<'a> FormatOptions<'a> {
             }
         )
     )]
-    pub fn with_params(
+    pub fn with_params<'b>(
         &self,
-        #[builder(start_fn, into)] params: QueryParams,
+        #[builder(start_fn, into)] params: QueryParams<'b>,
         #[builder(finish_fn)] query: &str,
     ) -> String {
         let tokens = tokenizer::tokenize(query, params.is_named(), self);
@@ -132,26 +134,38 @@ impl Default for Indent {
 }
 
 #[derive(Debug, Clone, Default)]
-pub enum QueryParams {
-    Named(Vec<(String, String)>),
-    Indexed(Vec<String>),
+pub enum QueryParams<'a> {
+    Named(Cow<'a, [(String, String)]>),
+    Indexed(Cow<'a, [String]>),
     #[default]
     None,
 }
 
-impl From<Vec<(String, String)>> for QueryParams {
+impl<'a> From<Vec<(String, String)>> for QueryParams<'a> {
     fn from(value: Vec<(String, String)>) -> Self {
-        Self::Named(value)
+        Self::Named(Cow::Owned(value))
     }
 }
 
-impl From<Vec<String>> for QueryParams {
+impl<'a> From<Vec<String>> for QueryParams<'a> {
     fn from(value: Vec<String>) -> Self {
-        Self::Indexed(value)
+        Self::Indexed(Cow::Owned(value))
     }
 }
 
-impl QueryParams {
+impl<'a> From<&'a [(String, String)]> for QueryParams<'a> {
+    fn from(value: &'a [(String, String)]) -> Self {
+        Self::Named(Cow::Borrowed(value))
+    }
+}
+
+impl<'a> From<&'a [String]> for QueryParams<'a> {
+    fn from(value: &'a [String]) -> Self {
+        Self::Indexed(Cow::Borrowed(value))
+    }
+}
+
+impl<'a> QueryParams<'a> {
     fn is_named(&self) -> bool {
         matches!(self, QueryParams::Named(_))
     }
@@ -1532,7 +1546,7 @@ mod tests {
     fn it_recognizes_at_variables_with_param_values() {
         let input =
             "SELECT @variable, @a1_2.3$, @'var name', @\"var name\", @`var name`, @[var name], @'var\\name';";
-        let params = vec![
+        let params = [
             ("variable".to_string(), "\"variable value\"".to_string()),
             ("a1_2.3$".to_string(), "'weird value'".to_string()),
             ("var name".to_string(), "'var value'".to_string()),
@@ -1540,7 +1554,7 @@ mod tests {
         ];
         let options = FormatOptions::builder()
             .dialect(Dialect::SQLServer)
-            .params(params);
+            .params(params.as_ref());
         let expected = indoc!(
             "
             SELECT
@@ -1653,12 +1667,12 @@ mod tests {
     #[test]
     fn it_recognizes_question_indexed_placeholders_with_param_values() {
         let input = "SELECT ?, ?, ?;";
-        let params = vec![
+        let params = [
             "first".to_string(),
             "second".to_string(),
             "third".to_string(),
         ];
-        let options = FormatOptions::builder().params(params);
+        let options = FormatOptions::builder().params(params.as_ref());
         let expected = indoc!(
             "
             SELECT

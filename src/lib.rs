@@ -177,6 +177,18 @@ impl<'a> From<&'a [String]> for QueryParams<'a> {
     }
 }
 
+impl<'a, const N: usize> From<&'a [(String, String); N]> for QueryParams<'a> {
+    fn from(value: &'a [(String, String); N]) -> Self {
+        Self::Named(Cow::Borrowed(value))
+    }
+}
+
+impl<'a, const N: usize> From<&'a [String; N]> for QueryParams<'a> {
+    fn from(value: &'a [String; N]) -> Self {
+        Self::Indexed(Cow::Borrowed(value))
+    }
+}
+
 impl<'a> QueryParams<'a> {
     fn is_named(&self) -> bool {
         matches!(self, QueryParams::Named(_))
@@ -1566,7 +1578,7 @@ mod tests {
         ];
         let options = FormatOptions::builder()
             .dialect(Dialect::SQLServer)
-            .params(params.as_ref());
+            .params(&params);
         let expected = indoc!(
             "
             SELECT
@@ -1622,9 +1634,7 @@ mod tests {
                 "'super weird value'".to_string(),
             ),
         ];
-        let options = FormatOptions::builder()
-            .dialect(Dialect::SQLServer)
-            .params(params);
+        let options = FormatOptions::builder().dialect(Dialect::SQLServer).build();
         let expected = indoc!(
             "
             SELECT
@@ -1638,7 +1648,7 @@ mod tests {
               'super weird value';"
         );
 
-        assert_eq!(options.format(input), expected);
+        assert_eq!(options.with_params(params).format(input), expected);
     }
 
     #[test]
@@ -1664,7 +1674,7 @@ mod tests {
             "second".to_string(),
             "third".to_string(),
         ];
-        let options = FormatOptions::builder().params(params);
+        let options = FormatOptions::builder().params(&params);
         let expected = indoc!(
             "
             SELECT
@@ -1734,7 +1744,7 @@ mod tests {
             "third".to_string(),
             "4th".to_string(),
         ];
-        let options = FormatOptions::builder().params(params);
+        let options = FormatOptions::builder().params(&params);
         let expected = indoc!(
             "
             SELECT
@@ -1752,13 +1762,13 @@ mod tests {
     #[test]
     fn it_recognizes_dollar_sign_alphanumeric_placeholders_with_param_values() {
         let input = "SELECT $hash, $salt, $1, $2;";
-        let params = vec![
+        let params = [
             ("hash".to_string(), "hash value".to_string()),
             ("salt".to_string(), "salt value".to_string()),
             ("1".to_string(), "number 1".to_string()),
             ("2".to_string(), "number 2".to_string()),
         ];
-        let options = FormatOptions::builder().params(params);
+        let options = FormatOptions::builder().params(&params);
         let expected = indoc!(
             "
             SELECT

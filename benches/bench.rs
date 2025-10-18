@@ -1,46 +1,34 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
+
+use criterion::{criterion_group, criterion_main, Criterion};
 use sqlformat::*;
 
 fn simple_query(c: &mut Criterion) {
     let input = "SELECT * FROM my_table WHERE id = 1";
     c.bench_function("simple query", |b| {
-        b.iter(|| {
-            format(
-                black_box(input),
-                black_box(&QueryParams::None),
-                black_box(&FormatOptions::default()),
-            )
-        })
+        b.iter(|| FormatOptions::default().format(input))
     });
 }
 
 fn complex_query(c: &mut Criterion) {
     let input = "SELECT t1.id, t1.name, t1.title, t1.description, t2.mothers_maiden_name, t2.first_girlfriend\nFROM my_table t1 LEFT JOIN other_table t2 ON t1.id = t2.other_id WHERE t2.order BETWEEN  17 AND 30";
     c.bench_function("complex query", |b| {
-        b.iter(|| {
-            format(
-                black_box(input),
-                black_box(&QueryParams::None),
-                black_box(&FormatOptions::default()),
-            )
-        })
+        b.iter(|| FormatOptions::default().format(input))
     });
 }
 
 fn query_with_named_params(c: &mut Criterion) {
     let input = "SELECT * FROM my_table WHERE id = :first OR id = :second OR id = :third";
-    let params = vec![
+    let params = &[
         ("first".to_string(), "1".to_string()),
         ("second".to_string(), "2".to_string()),
         ("third".to_string(), "3".to_string()),
     ];
     c.bench_function("named params", |b| {
         b.iter(|| {
-            format(
-                black_box(input),
-                black_box(&QueryParams::Named(params.clone())),
-                black_box(&FormatOptions::default()),
-            )
+            FormatOptions::default()
+                .with_params(params.as_ref())
+                .format(input)
         })
     });
 }
@@ -49,13 +37,7 @@ fn query_with_explicit_indexed_params(c: &mut Criterion) {
     let input = "SELECT * FROM my_table WHERE id = ?1 OR id = ?2 OR id = ?0";
     let params = vec!["0".to_string(), "1".to_string(), "2".to_string()];
     c.bench_function("explicit indexed params", |b| {
-        b.iter(|| {
-            format(
-                black_box(input),
-                black_box(&QueryParams::Indexed(params.clone())),
-                black_box(&FormatOptions::default()),
-            )
-        })
+        b.iter(|| FormatOptions::default().with_params(&params).format(input))
     });
 }
 
@@ -63,13 +45,7 @@ fn query_with_implicit_indexed_params(c: &mut Criterion) {
     let input = "SELECT * FROM my_table WHERE id = ? OR id = ? OR id = ?";
     let params = vec!["0".to_string(), "1".to_string(), "2".to_string()];
     c.bench_function("implicit indexed params", |b| {
-        b.iter(|| {
-            format(
-                black_box(input),
-                black_box(&QueryParams::Indexed(params.clone())),
-                black_box(&FormatOptions::default()),
-            )
-        })
+        b.iter(|| FormatOptions::default().with_params(&params).format(input))
     });
 }
 
@@ -131,13 +107,7 @@ VALUES
 
     let input = generate_insert_query();
     c.bench_function("issue 633", |b| {
-        b.iter(|| {
-            format(
-                black_box(&input),
-                black_box(&QueryParams::None),
-                black_box(&FormatOptions::default()),
-            )
-        })
+        b.iter(|| FormatOptions::default().format(&input))
     });
 }
 
@@ -145,13 +115,7 @@ fn issue_633_2(c: &mut Criterion) {
     let input = "SELECT\n  d.uuid AS uuid,\n\td.name_of_document AS name,\n\td.slug_name AS slug,\n\td.default_contract_uuid AS default_contract_uuid,\n\ta.uuid AS parent_uuid,\n\ta.name_of_agreement AS agreement_name,\n\td.icon_name AS icon\nFROM `documents` d\nLEFT JOIN agreements a ON a.uuid = d.parent_uuid\n WHERE d.uuid = ? LIMIT 1";
     let params = vec!["0".to_string()];
     c.bench_function("issue 633 query 2", |b| {
-        b.iter(|| {
-            format(
-                black_box(input),
-                black_box(&QueryParams::Indexed(params.clone())),
-                black_box(&FormatOptions::default()),
-            )
-        })
+        b.iter(|| FormatOptions::default().with_params(&params).format(input))
     });
 }
 
@@ -171,13 +135,7 @@ fn issue_633_3(c: &mut Criterion) {
     }
 
     c.bench_function("issue 633 query 3", |b| {
-        b.iter(|| {
-            format(
-                black_box(&input),
-                black_box(&QueryParams::None),
-                black_box(&FormatOptions::default()),
-            )
-        })
+        b.iter(|| FormatOptions::default().format(&input))
     });
 }
 

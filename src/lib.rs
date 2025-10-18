@@ -1578,7 +1578,7 @@ mod tests {
         ];
         let options = FormatOptions::builder()
             .dialect(Dialect::SQLServer)
-            .params(&params);
+            .params(params.as_ref());
         let expected = indoc!(
             "
             SELECT
@@ -1624,7 +1624,7 @@ mod tests {
             :[var name], :'escaped \\'var\\'', :\"^*& weird \\\" var   \";
             "
         );
-        let params = vec![
+        let params = [
             ("variable".to_string(), "\"variable value\"".to_string()),
             ("a1_2.3$".to_string(), "'weird value'".to_string()),
             ("var name".to_string(), "'var value'".to_string()),
@@ -1648,7 +1648,7 @@ mod tests {
               'super weird value';"
         );
 
-        assert_eq!(options.with_params(params).format(input), expected);
+        assert_eq!(options.with_params(&params).format(input), expected);
     }
 
     #[test]
@@ -1744,7 +1744,7 @@ mod tests {
             "third".to_string(),
             "4th".to_string(),
         ];
-        let options = FormatOptions::builder().params(&params);
+        let options = FormatOptions::builder().params(params);
         let expected = indoc!(
             "
             SELECT
@@ -1762,7 +1762,7 @@ mod tests {
     #[test]
     fn it_recognizes_dollar_sign_alphanumeric_placeholders_with_param_values() {
         let input = "SELECT $hash, $salt, $1, $2;";
-        let params = [
+        let params = vec![
             ("hash".to_string(), "hash value".to_string()),
             ("salt".to_string(), "salt value".to_string()),
             ("1".to_string(), "number 1".to_string()),
@@ -1804,12 +1804,12 @@ mod tests {
     #[test]
     fn it_formats_query_with_go_batch_separator() {
         let input = "SELECT 1 GO SELECT 2";
-        let params = vec![
+        let params = [
             "first".to_string(),
             "second".to_string(),
             "third".to_string(),
         ];
-        let options = FormatOptions::builder().params(params);
+        let options = FormatOptions::builder().params(&params);
         let expected = indoc!(
             "
             SELECT

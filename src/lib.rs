@@ -73,7 +73,7 @@ pub struct FormatOptions<'a> {
 
 impl<'a> FormatOptions<'a> {
     /// Format the SQL query string
-    fn format(&self, query: &str) -> String {
+    pub fn format(&self, query: &str) -> String {
         let tokens = tokenizer::tokenize(query, self.params.is_named(), self);
         formatter::format(&tokens, &self.params, self)
     }
@@ -150,6 +150,18 @@ impl<'a> From<Vec<(String, String)>> for QueryParams<'a> {
 impl<'a> From<Vec<String>> for QueryParams<'a> {
     fn from(value: Vec<String>) -> Self {
         Self::Indexed(Cow::Owned(value))
+    }
+}
+
+impl<'a> From<&'a Vec<(String, String)>> for QueryParams<'a> {
+    fn from(value: &'a Vec<(String, String)>) -> Self {
+        Self::Named(Cow::Borrowed(value.as_ref()))
+    }
+}
+
+impl<'a> From<&'a Vec<String>> for QueryParams<'a> {
+    fn from(value: &'a Vec<String>) -> Self {
+        Self::Indexed(Cow::Borrowed(value.as_ref()))
     }
 }
 
@@ -1776,10 +1788,7 @@ mod tests {
               third;"
         );
 
-        assert_eq!(
-            format(input, &QueryParams::Named(params), &options),
-            expected
-        );
+        assert_eq!(options.with_params(params).format(input), expected);
     }
 
     #[test]

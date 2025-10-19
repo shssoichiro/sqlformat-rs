@@ -2371,11 +2371,10 @@ mod tests {
     #[test]
     fn it_uses_given_ignore_case_convert_config() {
         let input = "select count(*),Column1 from Table1;";
-        let options = FormatOptions {
-            uppercase: Some(true),
-            ignore_case_convert: Some(vec!["from"]),
-            ..FormatOptions::default()
-        };
+        let options = FormatOptions::builder()
+            .uppercase(true)
+            .ignore_case_convert(vec!["from"]);
+
         let expected = indoc!(
             "
             SELECT

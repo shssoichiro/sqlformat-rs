@@ -1786,6 +1786,20 @@ mod tests {
             expected
         );
     }
+    #[test]
+    fn it_formats_raw_sql_and_conditional_queries() {
+        let input = "SELECT {foo: &[T]}, {b.c()}, {d.e};";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              {foo: &[T]},
+              {b.c()},
+              {d.e};"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
 
     #[test]
     fn it_formats_query_with_go_batch_separator() {

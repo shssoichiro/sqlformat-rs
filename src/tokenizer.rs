@@ -384,22 +384,18 @@ fn get_ident_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i
 }
 
 fn get_braced_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
-    delimited(
-        '{',
-        take_while(1.., |c: char| c.is_alphanumeric() || c == '_'),
-        '}',
-    )
-    .with_taken()
-    .parse_next(input)
-    .map(|(index, token)| {
-        let index = Cow::Borrowed(index);
-        Token {
-            kind: TokenKind::Placeholder,
-            value: token,
-            key: Some(PlaceholderKind::Named(index)),
-            alias: token,
-        }
-    })
+    delimited('{', take_until(1.., '}'), '}')
+        .with_taken()
+        .parse_next(input)
+        .map(|(index, token)| {
+            let index = Cow::Borrowed(index);
+            Token {
+                kind: TokenKind::Placeholder,
+                value: token,
+                key: Some(PlaceholderKind::Named(index)),
+                alias: token,
+            }
+        })
 }
 
 fn get_string_named_placeholder_token<'i>(

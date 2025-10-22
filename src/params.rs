@@ -3,7 +3,7 @@ use crate::QueryParams;
 
 pub(crate) struct Params<'a> {
     index: usize,
-    params: &'a QueryParams,
+    params: &'a QueryParams<'a>,
 }
 
 impl<'a> Params<'a> {

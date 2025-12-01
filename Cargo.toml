@@ -23,7 +23,7 @@ unicode_categories = "0.1.1"
 winnow = { version = "0.7.0", features = ["simd"] }
 
 [dev-dependencies]
-criterion = "0.7"
+criterion = "0.8"
 indoc = "2.0"
 pretty_assertions = "1.4.1"
 

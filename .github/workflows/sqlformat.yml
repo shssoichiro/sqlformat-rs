@@ -44,7 +44,7 @@ jobs:
           cargo fmt --all -- --check
       - name: Run clippy
         if: matrix.toolchain == 'stable'
-        uses: actions-rs-plus/clippy-check@v2.3.0
+        uses: actions-rs-plus/clippy-check@v2.4.1
         with:
           args: --all -- -D warnings
       - name: Run tests

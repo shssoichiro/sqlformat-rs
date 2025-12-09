@@ -1,6 +1,6 @@
 [package]
 name = "sqlformat"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Josh Holmer <jholmer.in@gmail.com>"]
 edition = "2021"
 rust-version = "1.84"
@@ -12,7 +12,13 @@ description = "Formats whitespace in a SQL string to make it easier to read"
 keywords = ["sql"]
 categories = ["development-tools"]
 
+[features]
+debug = ["dep:anstream", "dep:anstyle", "dep:okhsl"]
+
 [dependencies]
+anstream = { version = "0.6.21", optional = true }
+anstyle = { version = "1.0.13", optional = true }
+okhsl = { version = "1.0.1", optional = true }
 unicode_categories = "0.1.1"
 winnow = { version = "0.7.0", features = ["simd"] }
 

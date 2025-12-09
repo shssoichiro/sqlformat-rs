@@ -15,6 +15,9 @@ mod inline_block;
 mod params;
 mod tokenizer;
 
+#[cfg(feature = "debug")]
+mod debug;
+
 /// Formats whitespace in a SQL string to make it easier to read.
 /// Optionally replaces parameter placeholders with `params`.
 pub fn format(query: &str, params: &QueryParams, options: &FormatOptions) -> String {
@@ -22,6 +25,17 @@ pub fn format(query: &str, params: &QueryParams, options: &FormatOptions) -> Str
 
     let tokens = tokenizer::tokenize(query, named_placeholders, options);
     formatter::format(&tokens, params, options)
+}
+
+/// The SQL dialect to use. This affects parsing of special characters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dialect {
+    /// Generic SQL syntax, most dialect-specific constructs are disabled
+    Generic,
+    /// Enables array syntax (`[`, `]`) and operators
+    PostgreSql,
+    /// Enables `[bracketed identifiers]` and `@variables`
+    SQLServer,
 }
 
 /// Options for controlling how the library formats SQL
@@ -65,6 +79,10 @@ pub struct FormatOptions<'a> {
     ///
     /// Default: false,
     pub joins_as_top_level: bool,
+    /// Tell the SQL dialect to use
+    ///
+    /// Default: Generic
+    pub dialect: Dialect,
 }
 
 impl<'a> Default for FormatOptions<'a> {
@@ -79,6 +97,7 @@ impl<'a> Default for FormatOptions<'a> {
             max_inline_arguments: None,
             max_inline_top_level: None,
             joins_as_top_level: false,
+            dialect: Dialect::Generic,
         }
     }
 }
@@ -441,6 +460,27 @@ mod tests {
     }
 
     #[test]
+    fn it_formats_select_with_for_update_of() {
+        let input: &'static str = "SELECT id FROM users WHERE disabled_at IS NULL FOR UPDATE OF users SKIP LOCKED LIMIT 1";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              id
+            FROM
+              users
+            WHERE
+              disabled_at IS NULL
+            FOR UPDATE
+              OF users SKIP LOCKED
+            LIMIT
+              1"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_limit_with_two_comma_separated_values_on_single_line() {
         let input = "LIMIT 5, 10;";
         let options = FormatOptions::default();
@@ -472,7 +512,10 @@ mod tests {
     #[test]
     fn it_formats_type_specifiers() {
         let input = "SELECT id,  ARRAY [] :: UUID [] FROM UNNEST($1  ::  UUID   []) WHERE $1::UUID[] IS NOT NULL;";
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -487,6 +530,66 @@ mod tests {
         assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
+    #[test]
+    fn it_formats_arrays_as_function_arguments() {
+        let input =
+            "SELECT array_position(ARRAY['sun','mon','tue',  'wed',   'thu','fri',  'sat'], 'mon');";
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              array_position(
+                ARRAY['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+                'mon'
+              );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_arrays_as_values() {
+        let input = " INSERT INTO t VALUES('a', ARRAY[0, 1,2,3], ARRAY[['a','b'],    ['c' ,'d']]);";
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            max_inline_block: 10,
+            max_inline_top_level: Some(50),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            INSERT INTO t
+            VALUES (
+              'a',
+              ARRAY[0, 1, 2, 3],
+              ARRAY[
+                ['a', 'b'],
+                ['c', 'd']
+              ]
+            );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_array_index_notation() {
+        let input = "SELECT a [ 1 ] + b [ 2 ] [   5+1 ] > c [3] ;";
+        let options = FormatOptions {
+            dialect: Dialect::PostgreSql,
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+            SELECT
+              a[1] + b[2][5 + 1] > c[3];"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
     #[test]
     fn it_formats_limit_of_single_value_and_offset() {
         let input = "LIMIT 5 OFFSET 8;";
@@ -552,6 +655,46 @@ mod tests {
               )
             WHERE
               a > b"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_does_format_drop() {
+        let input = indoc!(
+            "
+                DROP INDEX IF EXISTS idx_a;
+                DROP INDEX IF EXISTS idx_b;
+                "
+        );
+
+        let options = FormatOptions {
+            ..Default::default()
+        };
+
+        let expected = indoc!(
+            "
+                DROP INDEX IF EXISTS
+                  idx_a;
+                DROP INDEX IF EXISTS
+                  idx_b;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+
+        let input = indoc!(
+            r#"
+                -- comment
+                DROP TABLE IF EXISTS "public"."table_name";
+                "#
+        );
+
+        let expected = indoc!(
+            r#"
+                -- comment
+                DROP TABLE IF EXISTS
+                  "public"."table_name";"#
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
@@ -892,8 +1035,12 @@ mod tests {
     fn it_formats_simple_drop_query() {
         let input = "DROP TABLE IF EXISTS admin_role;";
         let options = FormatOptions::default();
-
-        assert_eq!(format(input, &QueryParams::None, &options), input);
+        let output = indoc!(
+            "
+            DROP TABLE IF EXISTS
+              admin_role;"
+        );
+        assert_eq!(format(input, &QueryParams::None, &options), output);
     }
 
     #[test]
@@ -1359,8 +1506,30 @@ mod tests {
             "
             ALTER TABLE
               supplier
-            ALTER COLUMN
-              supplier_name VARCHAR(100) NOT NULL;"
+              ALTER COLUMN supplier_name VARCHAR(100) NOT NULL;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_alter_table_add_and_drop() {
+        let input = r#"ALTER TABLE "public"."event" DROP CONSTRAINT "validate_date", ADD CONSTRAINT "validate_date" CHECK (end_date IS NULL
+            OR (start_date IS NOT NULL AND end_date > start_date));"#;
+
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            r#"
+            ALTER TABLE
+              "public"."event"
+              DROP CONSTRAINT "validate_date",
+              ADD CONSTRAINT "validate_date" CHECK (
+                end_date IS NULL
+                OR (
+                  start_date IS NOT NULL
+                  AND end_date > start_date
+                )
+              );"#
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
@@ -1369,7 +1538,10 @@ mod tests {
     #[test]
     fn it_recognizes_bracketed_strings() {
         let inputs = ["[foo JOIN bar]", "[foo ]] JOIN bar]"];
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::SQLServer,
+            ..Default::default()
+        };
         for input in &inputs {
             assert_eq!(&format(input, &QueryParams::None, &options), input);
         }
@@ -1379,7 +1551,10 @@ mod tests {
     fn it_recognizes_at_variables() {
         let input =
             "SELECT @variable, @a1_2.3$, @'var name', @\"var name\", @`var name`, @[var name];";
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::SQLServer,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -1404,7 +1579,10 @@ mod tests {
             ("var name".to_string(), "'var value'".to_string()),
             ("var\\name".to_string(), "'var\\ value'".to_string()),
         ];
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::SQLServer,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -1427,7 +1605,10 @@ mod tests {
     fn it_recognizes_colon_variables() {
         let input =
             "SELECT :variable, :a1_2.3$, :'var name', :\"var name\", :`var name`, :[var name];";
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::SQLServer,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -1460,7 +1641,10 @@ mod tests {
                 "'super weird value'".to_string(),
             ),
         ];
-        let options = FormatOptions::default();
+        let options = FormatOptions {
+            dialect: Dialect::SQLServer,
+            ..Default::default()
+        };
         let expected = indoc!(
             "
             SELECT
@@ -1622,6 +1806,43 @@ mod tests {
             format(input, &QueryParams::Named(params), &options),
             expected
         );
+    }
+
+    #[test]
+    fn it_recognizes_braced_placeholders_with_param_values() {
+        let input = "SELECT {a}, {b}, {c};";
+        let params = vec![
+            ("a".to_string(), "first".to_string()),
+            ("b".to_string(), "second".to_string()),
+            ("c".to_string(), "third".to_string()),
+        ];
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              first,
+              second,
+              third;"
+        );
+
+        assert_eq!(
+            format(input, &QueryParams::Named(params), &options),
+            expected
+        );
+    }
+    #[test]
+    fn it_formats_raw_sql_and_conditional_queries() {
+        let input = "SELECT {foo: &[T]}, {b.c()}, {d.e};";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            SELECT
+              {foo: &[T]},
+              {b.c()},
+              {d.e};"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
     }
 
     #[test]
@@ -2122,8 +2343,7 @@ mod tests {
             -- 自动加载数据到 Hive 分区中
             ALTER TABLE
                 sales_data
-            ADD
-                PARTITION (sale_year = '2024', sale_month = '08') LOCATION '/user/hive/warehouse/sales_data/2024/08';"
+                ADD PARTITION (sale_year = '2024', sale_month = '08') LOCATION '/user/hive/warehouse/sales_data/2024/08';"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);
@@ -2297,8 +2517,7 @@ mod tests {
               FROM table
             )
             SELECT
-              b,
-              field
+              b, field
             FROM a, aa;"
         };
         assert_eq!(format(input, &QueryParams::None, &options), expected);
@@ -2521,7 +2740,7 @@ from
               SELECT true
               FROM bar
               WHERE bar.foo = $99
-              AND bar.foo > $100
+                AND bar.foo > $100
             ),
             c = CASE WHEN $6 THEN NULL ELSE COALESCE($7, c) END,
             d = CASE

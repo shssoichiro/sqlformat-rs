@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
 use winnow::ascii::{digit0, digit1, till_line_ending, Caseless};
-use winnow::combinator::{alt, dispatch, eof, fail, opt, peek, terminated};
+use winnow::combinator::{alt, delimited, dispatch, eof, fail, opt, peek, terminated};
 use winnow::error::ContextError;
 use winnow::error::ParserError;
 use winnow::prelude::*;
 use winnow::token::{any, one_of, rest, take, take_until, take_while};
 use winnow::Result;
 
-use crate::FormatOptions;
+use crate::{Dialect, FormatOptions};
 
 pub(crate) fn tokenize<'a>(
     mut input: &'a str,
@@ -32,6 +32,7 @@ pub(crate) fn tokenize<'a>(
         last_reserved_token.clone(),
         last_reserved_top_level_token.clone(),
         named_placeholders,
+        options.dialect,
     ) {
         match result.kind {
             TokenKind::Reserved => {
@@ -73,7 +74,7 @@ pub(crate) struct Token<'a> {
     pub alias: &'a str,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum TokenKind {
     TypeSpecifier,
     Whitespace,
@@ -124,13 +125,14 @@ fn get_next_token<'a>(
     last_reserved_token: Option<Token<'a>>,
     last_reserved_top_level_token: Option<Token<'a>>,
     named_placeholders: bool,
+    dialect: Dialect,
 ) -> Result<Token<'a>> {
     alt((
         get_comment_token,
         |input: &mut _| get_type_specifier_token(input, previous_token.clone()),
-        get_string_token,
-        get_open_paren_token,
-        get_close_paren_token,
+        |input: &mut _| get_string_token(input, dialect),
+        |input: &mut _| get_open_paren_token(input, dialect),
+        |input: &mut _| get_close_paren_token(input, dialect),
         get_number_token,
         |input: &mut _| {
             get_reserved_word_token(
@@ -141,7 +143,7 @@ fn get_next_token<'a>(
             )
         },
         get_operator_token,
-        |input: &mut _| get_placeholder_token(input, named_placeholders),
+        |input: &mut _| get_placeholder_token(input, named_placeholders, dialect),
         get_word_token,
         get_any_other_char,
     ))
@@ -157,6 +159,7 @@ fn get_type_specifier_token<'i>(
             TokenKind::Placeholder,
             TokenKind::Reserved,
             TokenKind::String,
+            TokenKind::Number,
             TokenKind::TypeSpecifier,
             TokenKind::Word,
         ]
@@ -237,10 +240,10 @@ pub fn take_till_escaping<'a>(
 // 4. single quoted string using '' or \' to escape
 // 5. national character quoted string using N'' or N\' to escape
 // 6. hex(blob literal) does not need to escape
-fn get_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
+fn get_string_token<'i>(input: &mut &'i str, dialect: Dialect) -> Result<Token<'i>> {
     dispatch! {any;
         '`' => (take_till_escaping('`', &['`']), any).void(),
-        '[' => (take_till_escaping(']', &[']']), any).void(),
+        '[' if dialect == Dialect::SQLServer => (take_till_escaping(']', &[']']), any).void(),
         '"' => (take_till_escaping('"', &['"', '\\']), any).void(),
         '\'' => (take_till_escaping('\'', &['\'', '\\']), any).void(),
         'N' => ('\'', take_till_escaping('\'', &['\'', '\\']), any).void(),
@@ -260,10 +263,10 @@ fn get_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
 }
 
 // Like above but it doesn't replace double quotes
-fn get_placeholder_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
+fn get_placeholder_string_token<'i>(input: &mut &'i str, dialect: Dialect) -> Result<Token<'i>> {
     dispatch! {any;
         '`'=>( take_till_escaping('`', &['`']), any).void(),
-        '['=>( take_till_escaping(']', &[']']), any).void(),
+        '[' if dialect == Dialect::SQLServer =>( take_till_escaping(']', &[']']), any).void(),
         '"'=>( take_till_escaping('"', &['\\']), any).void(),
         '\''=>( take_till_escaping('\'', &['\\']), any).void(),
         'N' =>('\'', take_till_escaping('\'', &['\\']), any).void(),
@@ -279,44 +282,59 @@ fn get_placeholder_string_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     })
 }
 
-fn get_open_paren_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
-    alt(("(", terminated(Caseless("CASE"), end_of_word)))
-        .parse_next(input)
-        .map(|token| Token {
-            kind: TokenKind::OpenParen,
-            value: token,
-            key: None,
-            alias: token,
-        })
+fn get_open_paren_token<'i>(input: &mut &'i str, dialect: Dialect) -> Result<Token<'i>> {
+    let case = terminated(Caseless("CASE"), end_of_word);
+    let open_paren = if dialect == Dialect::PostgreSql {
+        ("(", "[", case)
+    } else {
+        ("(", "(", case)
+    };
+
+    alt(open_paren).parse_next(input).map(|token| Token {
+        kind: TokenKind::OpenParen,
+        value: token,
+        key: None,
+        alias: token,
+    })
 }
 
-fn get_close_paren_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
-    alt((")", terminated(Caseless("END"), end_of_word)))
-        .parse_next(input)
-        .map(|token| Token {
-            kind: TokenKind::CloseParen,
-            value: token,
-            key: None,
-            alias: token,
-        })
+fn get_close_paren_token<'i>(input: &mut &'i str, dialect: Dialect) -> Result<Token<'i>> {
+    let end = terminated(Caseless("END"), end_of_word);
+    let close_paren = if dialect == Dialect::PostgreSql {
+        (")", "]", end)
+    } else {
+        (")", ")", end)
+    };
+    alt(close_paren).parse_next(input).map(|token| Token {
+        kind: TokenKind::CloseParen,
+        value: token,
+        key: None,
+        alias: token,
+    })
 }
 
-fn get_placeholder_token<'i>(input: &mut &'i str, named_placeholders: bool) -> Result<Token<'i>> {
+fn get_placeholder_token<'i>(
+    input: &mut &'i str,
+    named_placeholders: bool,
+    dialect: Dialect,
+) -> Result<Token<'i>> {
     // The precedence changes based on 'named_placeholders' but not the exhaustiveness.
     // This is to ensure the formatting is the same even if parameters aren't used.
 
     if named_placeholders {
         alt((
             get_ident_named_placeholder_token,
-            get_string_named_placeholder_token,
+            |input: &mut _| get_string_named_placeholder_token(input, dialect),
             get_indexed_placeholder_token,
+            get_braced_named_placeholder_token,
         ))
         .parse_next(input)
     } else {
         alt((
             get_indexed_placeholder_token,
             get_ident_named_placeholder_token,
-            get_string_named_placeholder_token,
+            |input: &mut _| get_string_named_placeholder_token(input, dialect),
+            get_braced_named_placeholder_token,
         ))
         .parse_next(input)
     }
@@ -365,8 +383,28 @@ fn get_ident_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i
         })
 }
 
-fn get_string_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
-    (one_of(('@', ':')), get_placeholder_string_token)
+fn get_braced_named_placeholder_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
+    delimited('{', take_until(1.., '}'), '}')
+        .with_taken()
+        .parse_next(input)
+        .map(|(index, token)| {
+            let index = Cow::Borrowed(index);
+            Token {
+                kind: TokenKind::Placeholder,
+                value: token,
+                key: Some(PlaceholderKind::Named(index)),
+                alias: token,
+            }
+        })
+}
+
+fn get_string_named_placeholder_token<'i>(
+    input: &mut &'i str,
+    dialect: Dialect,
+) -> Result<Token<'i>> {
+    (one_of(('@', ':')), |input: &mut _| {
+        get_placeholder_string_token(input, dialect)
+    })
         .take()
         .parse_next(input)
         .map(|token| {
@@ -461,47 +499,80 @@ fn get_top_level_reserved_token<'a>(
     last_reserved_top_level_token: Option<Token<'a>>,
 ) -> impl Parser<&'a str, Token<'a>, ContextError> {
     move |input: &mut &'a str| {
-        let uc_input: String = get_uc_words(input, 3);
+        let uc_input: String = get_uc_words(input, 4);
         let mut uc_input = uc_input.as_str();
 
         // First peek at the first character to determine which group to check
         let first_char = peek(any).parse_next(input)?.to_ascii_uppercase();
 
+        let create_or_replace = (
+            "AGGREGATE",
+            "FUNCTION",
+            "LANGUAGE",
+            "PROCEDURE",
+            "RULE",
+            "TRIGGER",
+            "VIEW",
+        );
+
+        let alterable_or_droppable = alt((alt(create_or_replace), "TABLE", "INDEX"));
+        let create_or_replace = alt(create_or_replace);
+
         // Match keywords based on their first letter
         let result: Result<&str> = match first_char {
             'A' => alt((
-                terminated("ADD", end_of_word),
                 terminated("AFTER", end_of_word),
-                terminated("ALTER COLUMN", end_of_word),
-                terminated("ALTER TABLE", end_of_word),
+                terminated(("ALTER ", alterable_or_droppable).take(), end_of_word),
             ))
             .parse_next(&mut uc_input),
 
             'C' => terminated(
                 (
                     "CREATE ",
-                    opt(alt((
-                        "UNLOGGED ",
+                    alt((
+                        create_or_replace,
+                        (opt("UNIQUE "), "INDEX").take(),
                         (
-                            alt(("GLOBAL ", "LOCAL ")),
-                            opt(alt(("TEMPORARY ", "TEMP "))),
+                            opt(alt((
+                                "UNLOGGED ",
+                                (
+                                    alt(("GLOBAL ", "LOCAL ")),
+                                    opt(alt(("TEMPORARY ", "TEMP "))),
+                                )
+                                    .take(),
+                            ))),
+                            "TABLE",
                         )
                             .take(),
-                    ))),
-                    "TABLE",
+                    )),
                 )
                     .take(),
                 end_of_word,
             )
             .parse_next(&mut uc_input),
 
-            'D' => terminated("DELETE FROM", end_of_word).parse_next(&mut uc_input),
+            'D' => alt((
+                terminated("DELETE FROM", end_of_word),
+                terminated(
+                    ("DROP ", alterable_or_droppable, opt(" IF EXISTS")).take(),
+                    end_of_word,
+                ),
+            ))
+            .parse_next(&mut uc_input),
 
             'E' => terminated("EXCEPT", end_of_word).parse_next(&mut uc_input),
 
             'F' => alt((
                 terminated("FETCH FIRST", end_of_word),
                 terminated("FROM", end_of_word),
+                terminated(
+                    (
+                        "FOR ",
+                        alt(("UPDATE", "NO KEY UPDATE", "SHARE", "KEY SHARE")),
+                    )
+                        .take(),
+                    end_of_word,
+                ),
             ))
             .parse_next(&mut uc_input),
 

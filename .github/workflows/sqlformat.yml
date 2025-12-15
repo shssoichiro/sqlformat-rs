@@ -31,7 +31,7 @@ jobs:
           - conf: latest-nightly
             toolchain: nightly
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install ${{ matrix.toolchain }}
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -55,7 +55,7 @@ jobs:
     needs: [build-test-unix]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install stable
         uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2

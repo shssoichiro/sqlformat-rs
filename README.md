@@ -22,12 +22,12 @@ This crate is a Rust port of [sql-formatter-plus](https://github.com/kufii/sql-f
 ## Quick start
 
 ```rust
-use sqlformat::{format, FormatOptions, Indent, QueryParams};
+use sqlformat::FormatOptions;
 
 fn main() {
     let sql = "SELECT id, name FROM users WHERE created_at > NOW();";
     let options = FormatOptions::default();
-    let formatted = format(sql, &QueryParams::None, &options);
+    let formatted = options.format(sql);
     println!("{}", formatted);
 }
 ```
@@ -66,44 +66,43 @@ Minimum Supported Rust Version (MSRV): `1.84`.
 ### Basic formatting
 
 ```rust
-use sqlformat::{format, FormatOptions, QueryParams};
+use sqlformat::{FormatOptions};
 
 let sql = "SELECT count(*), col FROM t WHERE a = 1 AND b = 2;";
-let out = format(sql, &QueryParams::None, &FormatOptions::default());
+let out = FormatOptions::default().format(sql);
 ```
 
 ### Indentation
 
 ```rust
-use sqlformat::{format, FormatOptions, Indent, QueryParams};
+use sqlformat::{FormatOptions, Indent};
 
-let options = FormatOptions { indent: Indent::Spaces(4), ..Default::default() };
-let out = format("SELECT a, b FROM t;", &QueryParams::None, &options);
+let options = FormatOptions::builder().ident(4);
+let out = options.format("SELECT a, b FROM t;");
 
-let options = FormatOptions { indent: Indent::Tabs, ..Default::default() };
-let out = format("SELECT a, b FROM t;", &QueryParams::None, &options);
+let options = FormatOptions::builder().indent(Indent::Tabs);
+let out = options.format("SELECT a, b FROM t;");
 ```
 
 ### Keyword case conversion
 
 ```rust
-use sqlformat::{format, FormatOptions, QueryParams};
+use sqlformat::FormatOptions;
 
 // Uppercase reserved keywords
-let options = FormatOptions { uppercase: Some(true), ..Default::default() };
-let out = format("select distinct * from foo where bar = 1", &QueryParams::None, &options);
+let options = FormatOptions::builder().uppercase(true);
+let out = options.format("select distinct * from foo where bar = 1");
 
 // Lowercase reserved keywords
-let options = FormatOptions { uppercase: Some(false), ..Default::default() };
-let out = format("SELECT DISTINCT * FROM FOO WHERE BAR = 1", &QueryParams::None, &options);
+let options = FormatOptions::builder().uppercase(false);
+let out = options.format("SELECT DISTINCT * FROM FOO WHERE BAR = 1");
 
 // Preserve case with exceptions
-let options = FormatOptions {
-    uppercase: Some(true),
-    ignore_case_convert: Some(vec!["from", "where"]),
-    ..Default::default()
-};
-let out = format("select * from foo where bar = 1", &QueryParams::None, &options);
+let options = FormatOptions::builder()
+    .uppercase(true)
+    .ignore_case_convert(vec!["from", "where"]);
+
+let out = options.format("select * from foo where bar = 1");
 ```
 
 ### Inline/compact formatting
@@ -111,16 +110,15 @@ let out = format("select * from foo where bar = 1", &QueryParams::None, &options
 Control how aggressively short blocks and argument lists are kept on one line.
 
 ```rust
-use sqlformat::{format, FormatOptions, QueryParams};
+use sqlformat::FormatOptions;
 
-let options = FormatOptions {
-    inline: false,              // when true, forces single-line output
-    max_inline_block: 50,       // characters allowed to keep a parenthesized block inline
-    max_inline_arguments: Some(40),
-    max_inline_top_level: Some(40),
-    ..Default::default()
-};
-let out = format("SELECT a, b, c, d, e, f, g, h FROM t;", &QueryParams::None, &options);
+let options = FormatOptions::builder()
+    .inline(false)              // when true, forces single-line output
+    .max_inline_block(50)       // characters allowed to keep a parenthesized block inline
+    .max_inline_arguments(40),
+    .max_inline_top_level(40);
+
+let out = options.format("SELECT a, b, c, d, e, f, g, h FROM t;");
 ```
 
 ### JOIN layout
@@ -128,10 +126,10 @@ let out = format("SELECT a, b, c, d, e, f, g, h FROM t;", &QueryParams::None, &o
 Treat any JOIN as a top-level keyword (affects line breaks):
 
 ```rust
-use sqlformat::{format, FormatOptions, QueryParams};
+use sqlformat::FormatOptions;
 
-let options = FormatOptions { joins_as_top_level: true, ..Default::default() };
-let out = format("SELECT * FROM a INNER JOIN b ON a.id = b.a_id", &QueryParams::None, &options);
+let options = FormatOptions::builder().joins_as_top_level(true);
+let out = options.format("SELECT * FROM a INNER JOIN b ON a.id = b.a_id");
 ```
 
 ### Parameter interpolation
@@ -139,30 +137,38 @@ let out = format("SELECT * FROM a INNER JOIN b ON a.id = b.a_id", &QueryParams::
 `sqlformat` can substitute placeholders using `QueryParams`:
 
 ```rust
-use sqlformat::{format, FormatOptions, QueryParams};
+use sqlformat::FormatOptions;
+
+// Set the options only once
+let options = FormatOptions::default();
 
 // Numbered / positional (e.g., ?, ?1, $1)
 let sql = "SELECT ?1, ?, $2;";
-let params = QueryParams::Indexed(vec!["first".to_string(), "second".to_string(), "third".to_string()]);
-let out = format(sql, &params, &FormatOptions::default());
+let params = ["first".to_string(), "second".to_string(), "third".to_string()];
+// Pass params by reference
+let out = options.with_params(&params).format(sql);
 
 // Named (e.g., $name, :name, @name, :\"weird name\")
 let sql = "SELECT $hash, :name, @`var name`;";
-let params = QueryParams::Named(vec![
+let params = vec![
     ("hash".to_string(), "hash value".to_string()),
     ("name".to_string(), "Alice".to_string()),
     ("var name".to_string(), "Bob".to_string()),
 ]);
-let out = format(sql, &params, &FormatOptions::default());
+let out = options.with_params(&params).format(sql);
+
+// Named using a format-like syntax
+let sql = "SELECT {hash}, {name}, {var name};"
+let out = options.with_params(&params).format(sql);
 ```
 
 ### Controlling blank lines between statements
 
 ```rust
-use sqlformat::{format, FormatOptions, QueryParams};
+use sqlformat::FormatOptions;
 
-let options = FormatOptions { lines_between_queries: 2, ..Default::default() };
-let out = format("SELECT 1; SELECT 2;", &QueryParams::None, &options);
+let options = FormatOptions::builder().lines_between_queries(2);
+let out = options.format("SELECT 1; SELECT 2;");
 ```
 
 ### Temporarily disabling the formatter

@@ -66,7 +66,7 @@ jobs:
       - name: Generate code coverage
         run: cargo llvm-cov --codecov --output-path codecov.json --ignore-filename-regex tests\.rs
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: codecov.json

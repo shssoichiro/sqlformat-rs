@@ -614,6 +614,7 @@ fn get_top_level_reserved_token<'a>(
                 terminated("SELECT", end_of_word),
                 terminated("SET CURRENT SCHEMA", end_of_word),
                 terminated("SET SCHEMA", end_of_word),
+                terminated("SET NULL", end_of_word),
                 terminated("SET", end_of_word),
             ))
             .parse_next(&mut uc_input),
@@ -648,6 +649,7 @@ fn get_top_level_reserved_token<'a>(
                 {
                     TokenKind::Reserved
                 }
+                ("SET NULL", _) => TokenKind::Reserved,
                 ("SET", Some("UPDATE")) => TokenKind::ReservedNewlineAfter,
                 ("USING", v) if v != Some("MERGE INTO") && v != Some("DELETE FROM") => {
                     TokenKind::Reserved

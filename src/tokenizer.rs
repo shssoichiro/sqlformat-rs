@@ -128,24 +128,28 @@ fn get_next_token<'a>(
     dialect: Dialect,
 ) -> Result<Token<'a>> {
     alt((
-        get_comment_token,
-        |input: &mut _| get_type_specifier_token(input, previous_token.clone()),
-        |input: &mut _| get_string_token(input, dialect),
-        |input: &mut _| get_open_paren_token(input, dialect),
-        |input: &mut _| get_close_paren_token(input, dialect),
-        get_number_token,
-        |input: &mut _| {
-            get_reserved_word_token(
-                input,
-                previous_token.clone(),
-                last_reserved_token.clone(),
-                last_reserved_top_level_token.clone(),
-            )
-        },
-        get_operator_token,
-        |input: &mut _| get_placeholder_token(input, named_placeholders, dialect),
-        get_word_token,
-        get_any_other_char,
+        alt((
+            get_comment_token,
+            |input: &mut _| get_type_specifier_token(input, previous_token.clone()),
+            |input: &mut _| get_string_token(input, dialect),
+            |input: &mut _| get_open_paren_token(input, dialect),
+            |input: &mut _| get_close_paren_token(input, dialect),
+            get_number_token,
+        )),
+        alt((
+            |input: &mut _| {
+                get_reserved_word_token(
+                    input,
+                    previous_token.clone(),
+                    last_reserved_token.clone(),
+                    last_reserved_top_level_token.clone(),
+                )
+            },
+            get_operator_token,
+            |input: &mut _| get_placeholder_token(input, named_placeholders, dialect),
+            get_word_token,
+            get_any_other_char,
+        )),
     ))
     .parse_next(input)
 }
@@ -860,19 +864,23 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
 
     let result: Result<&str> = match first_char {
         'A' => alt((
-            terminated("ACCESSIBLE", end_of_word),
-            terminated("ACTION", end_of_word),
-            terminated("AGAINST", end_of_word),
-            terminated("AGGREGATE", end_of_word),
-            terminated("ALGORITHM", end_of_word),
-            terminated("ALL", end_of_word),
-            terminated("ALTER", end_of_word),
-            terminated("ANALYSE", end_of_word),
-            terminated("ANALYZE", end_of_word),
-            terminated("AS", end_of_word),
-            terminated("ASC", end_of_word),
-            terminated("AUTOCOMMIT", end_of_word),
-            terminated("AUTO_INCREMENT", end_of_word),
+            alt((
+                terminated("ACCESSIBLE", end_of_word),
+                terminated("ACTION", end_of_word),
+                terminated("AGAINST", end_of_word),
+                terminated("AGGREGATE", end_of_word),
+                terminated("ALGORITHM", end_of_word),
+                terminated("ALL", end_of_word),
+                terminated("ALTER", end_of_word),
+                terminated("ANALYSE", end_of_word),
+            )),
+            alt((
+                terminated("ANALYZE", end_of_word),
+                terminated("AS", end_of_word),
+                terminated("ASC", end_of_word),
+                terminated("AUTOCOMMIT", end_of_word),
+                terminated("AUTO_INCREMENT", end_of_word),
+            )),
         ))
         .parse_next(&mut uc_input),
 
@@ -885,25 +893,29 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         .parse_next(&mut uc_input),
 
         'C' => alt((
-            terminated("CASCADE", end_of_word),
-            terminated("CASE", end_of_word),
-            terminated("CHANGE", end_of_word),
-            terminated("CHANGED", end_of_word),
-            terminated("CHARSET", end_of_word),
-            terminated("CHECK", end_of_word),
-            terminated("CHECKSUM", end_of_word),
-            terminated("COLLATE", end_of_word),
-            terminated("COLLATION", end_of_word),
-            terminated("COLUMN", end_of_word),
-            terminated("COLUMNS", end_of_word),
-            terminated("COMMENT", end_of_word),
-            terminated("COMMIT", end_of_word),
-            terminated("COMMITTED", end_of_word),
-            terminated("COMPRESSED", end_of_word),
-            terminated("CONCURRENT", end_of_word),
-            terminated("CONSTRAINT", end_of_word),
-            terminated("CONTAINS", end_of_word),
             alt((
+                terminated("CASCADE", end_of_word),
+                terminated("CASE", end_of_word),
+                terminated("CHANGE", end_of_word),
+                terminated("CHANGED", end_of_word),
+                terminated("CHARSET", end_of_word),
+                terminated("CHECK", end_of_word),
+                terminated("CHECKSUM", end_of_word),
+                terminated("COLLATE", end_of_word),
+            )),
+            alt((
+                terminated("COLLATION", end_of_word),
+                terminated("COLUMN", end_of_word),
+                terminated("COLUMNS", end_of_word),
+                terminated("COMMENT", end_of_word),
+                terminated("COMMIT", end_of_word),
+                terminated("COMMITTED", end_of_word),
+                terminated("COMPRESSED", end_of_word),
+                terminated("CONCURRENT", end_of_word),
+            )),
+            alt((
+                terminated("CONSTRAINT", end_of_word),
+                terminated("CONTAINS", end_of_word),
                 terminated("CONVERT", end_of_word),
                 terminated("CREATE", end_of_word),
                 terminated("CROSS", end_of_word),
@@ -913,62 +925,76 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         .parse_next(&mut uc_input),
 
         'D' => alt((
-            terminated("DATABASE", end_of_word),
-            terminated("DATABASES", end_of_word),
-            terminated("DAY", end_of_word),
-            terminated("DAY_HOUR", end_of_word),
-            terminated("DAY_MINUTE", end_of_word),
-            terminated("DAY_SECOND", end_of_word),
-            terminated("DEFAULT", end_of_word),
-            terminated("DEFINER", end_of_word),
-            terminated("DELAYED", end_of_word),
-            terminated("DELETE", end_of_word),
-            terminated("DESC", end_of_word),
-            terminated("DESCRIBE", end_of_word),
-            terminated("DETERMINISTIC", end_of_word),
-            terminated("DISTINCT", end_of_word),
-            terminated("DISTINCTROW", end_of_word),
-            terminated("DIV", end_of_word),
-            terminated("DO", end_of_word),
-            terminated("DROP", end_of_word),
-            terminated("DUMPFILE", end_of_word),
-            terminated("DUPLICATE", end_of_word),
-            terminated("DYNAMIC", end_of_word),
+            alt((
+                terminated("DATABASE", end_of_word),
+                terminated("DATABASES", end_of_word),
+                terminated("DAY", end_of_word),
+                terminated("DAY_HOUR", end_of_word),
+                terminated("DAY_MINUTE", end_of_word),
+                terminated("DAY_SECOND", end_of_word),
+                terminated("DEFAULT", end_of_word),
+                terminated("DEFINER", end_of_word),
+            )),
+            alt((
+                terminated("DELAYED", end_of_word),
+                terminated("DELETE", end_of_word),
+                terminated("DESC", end_of_word),
+                terminated("DESCRIBE", end_of_word),
+                terminated("DETERMINISTIC", end_of_word),
+                terminated("DISTINCT", end_of_word),
+                terminated("DISTINCTROW", end_of_word),
+                terminated("DIV", end_of_word),
+            )),
+            alt((
+                terminated("DO", end_of_word),
+                terminated("DROP", end_of_word),
+                terminated("DUMPFILE", end_of_word),
+                terminated("DUPLICATE", end_of_word),
+                terminated("DYNAMIC", end_of_word),
+            )),
         ))
         .parse_next(&mut uc_input),
 
         'E' => alt((
-            terminated("ELSE", end_of_word),
-            terminated("ENCLOSED", end_of_word),
-            terminated("END", end_of_word),
-            terminated("ENGINE", end_of_word),
-            terminated("ENGINES", end_of_word),
-            terminated("ENGINE_TYPE", end_of_word),
-            terminated("ESCAPE", end_of_word),
-            terminated("ESCAPED", end_of_word),
-            terminated("EVENTS", end_of_word),
-            terminated("EXEC", end_of_word),
-            terminated("EXECUTE", end_of_word),
-            terminated("EXISTS", end_of_word),
-            terminated("EXPLAIN", end_of_word),
-            terminated("EXTENDED", end_of_word),
+            alt((
+                terminated("ELSE", end_of_word),
+                terminated("ENCLOSED", end_of_word),
+                terminated("END", end_of_word),
+                terminated("ENGINE", end_of_word),
+                terminated("ENGINES", end_of_word),
+                terminated("ENGINE_TYPE", end_of_word),
+                terminated("ESCAPE", end_of_word),
+                terminated("ESCAPED", end_of_word),
+            )),
+            alt((
+                terminated("EVENTS", end_of_word),
+                terminated("EXEC", end_of_word),
+                terminated("EXECUTE", end_of_word),
+                terminated("EXISTS", end_of_word),
+                terminated("EXPLAIN", end_of_word),
+                terminated("EXTENDED", end_of_word),
+            )),
         ))
         .parse_next(&mut uc_input),
 
         'F' => alt((
-            terminated("FAST", end_of_word),
-            terminated("FETCH", end_of_word),
-            terminated("FIELDS", end_of_word),
-            terminated("FILE", end_of_word),
-            terminated("FIRST", end_of_word),
-            terminated("FIXED", end_of_word),
-            terminated("FLUSH", end_of_word),
-            terminated("FOR", end_of_word),
-            terminated("FORCE", end_of_word),
-            terminated("FOREIGN", end_of_word),
-            terminated("FULL", end_of_word),
-            terminated("FULLTEXT", end_of_word),
-            terminated("FUNCTION", end_of_word),
+            alt((
+                terminated("FAST", end_of_word),
+                terminated("FETCH", end_of_word),
+                terminated("FIELDS", end_of_word),
+                terminated("FILE", end_of_word),
+                terminated("FIRST", end_of_word),
+                terminated("FIXED", end_of_word),
+                terminated("FLUSH", end_of_word),
+                terminated("FOR", end_of_word),
+            )),
+            alt((
+                terminated("FORCE", end_of_word),
+                terminated("FOREIGN", end_of_word),
+                terminated("FULL", end_of_word),
+                terminated("FULLTEXT", end_of_word),
+                terminated("FUNCTION", end_of_word),
+            )),
         ))
         .parse_next(&mut uc_input),
 
@@ -991,22 +1017,26 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         .parse_next(&mut uc_input),
 
         'I' => alt((
-            terminated("IDENTIFIED", end_of_word),
-            terminated("IF", end_of_word),
-            terminated("IFNULL", end_of_word),
-            terminated("IGNORE", end_of_word),
-            terminated("IN", end_of_word),
-            terminated("INDEX", end_of_word),
-            terminated("INDEXES", end_of_word),
-            terminated("INFILE", end_of_word),
-            terminated("INSERT", end_of_word),
-            terminated("INSERT_ID", end_of_word),
-            terminated("INSERT_METHOD", end_of_word),
-            terminated("INTERVAL", end_of_word),
-            terminated("INTO", end_of_word),
-            terminated("INVOKER", end_of_word),
-            terminated("IS", end_of_word),
-            terminated("ISOLATION", end_of_word),
+            alt((
+                terminated("IDENTIFIED", end_of_word),
+                terminated("IF", end_of_word),
+                terminated("IFNULL", end_of_word),
+                terminated("IGNORE", end_of_word),
+                terminated("IN", end_of_word),
+                terminated("INDEX", end_of_word),
+                terminated("INDEXES", end_of_word),
+                terminated("INFILE", end_of_word),
+            )),
+            alt((
+                terminated("INSERT", end_of_word),
+                terminated("INSERT_ID", end_of_word),
+                terminated("INSERT_METHOD", end_of_word),
+                terminated("INTERVAL", end_of_word),
+                terminated("INTO", end_of_word),
+                terminated("INVOKER", end_of_word),
+                terminated("IS", end_of_word),
+                terminated("ISOLATION", end_of_word),
+            )),
         ))
         .parse_next(&mut uc_input),
 
@@ -1018,43 +1048,53 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         .parse_next(&mut uc_input),
 
         'L' => alt((
-            terminated("LAST_INSERT_ID", end_of_word),
-            terminated("LEADING", end_of_word),
-            terminated("LEVEL", end_of_word),
-            terminated("LIKE", end_of_word),
-            terminated("LINEAR", end_of_word),
-            terminated("LINES", end_of_word),
-            terminated("LOAD", end_of_word),
-            terminated("LOCAL", end_of_word),
-            terminated("LOCK", end_of_word),
-            terminated("LOCKS", end_of_word),
-            terminated("LOGS", end_of_word),
-            terminated("LOW_PRIORITY", end_of_word),
+            alt((
+                terminated("LAST_INSERT_ID", end_of_word),
+                terminated("LEADING", end_of_word),
+                terminated("LEVEL", end_of_word),
+                terminated("LIKE", end_of_word),
+                terminated("LINEAR", end_of_word),
+                terminated("LINES", end_of_word),
+                terminated("LOAD", end_of_word),
+                terminated("LOCAL", end_of_word),
+            )),
+            alt((
+                terminated("LOCK", end_of_word),
+                terminated("LOCKS", end_of_word),
+                terminated("LOGS", end_of_word),
+                terminated("LOW_PRIORITY", end_of_word),
+            )),
         ))
         .parse_next(&mut uc_input),
 
         'M' => alt((
-            terminated("MARIA", end_of_word),
-            terminated("MASTER", end_of_word),
-            terminated("MASTER_CONNECT_RETRY", end_of_word),
-            terminated("MASTER_HOST", end_of_word),
-            terminated("MASTER_LOG_FILE", end_of_word),
-            terminated("MATCH", end_of_word),
-            terminated("MAX_CONNECTIONS_PER_HOUR", end_of_word),
-            terminated("MAX_QUERIES_PER_HOUR", end_of_word),
-            terminated("MAX_ROWS", end_of_word),
-            terminated("MAX_UPDATES_PER_HOUR", end_of_word),
-            terminated("MAX_USER_CONNECTIONS", end_of_word),
-            terminated("MEDIUM", end_of_word),
-            terminated("MERGE", end_of_word),
-            terminated("MINUTE", end_of_word),
-            terminated("MINUTE_SECOND", end_of_word),
-            terminated("MIN_ROWS", end_of_word),
-            terminated("MODE", end_of_word),
-            terminated("MODIFY", end_of_word),
-            terminated("MONTH", end_of_word),
-            terminated("MRG_MYISAM", end_of_word),
-            terminated("MYISAM", end_of_word),
+            alt((
+                terminated("MARIA", end_of_word),
+                terminated("MASTER", end_of_word),
+                terminated("MASTER_CONNECT_RETRY", end_of_word),
+                terminated("MASTER_HOST", end_of_word),
+                terminated("MASTER_LOG_FILE", end_of_word),
+                terminated("MATCH", end_of_word),
+                terminated("MAX_CONNECTIONS_PER_HOUR", end_of_word),
+                terminated("MAX_QUERIES_PER_HOUR", end_of_word),
+            )),
+            alt((
+                terminated("MAX_ROWS", end_of_word),
+                terminated("MAX_UPDATES_PER_HOUR", end_of_word),
+                terminated("MAX_USER_CONNECTIONS", end_of_word),
+                terminated("MEDIUM", end_of_word),
+                terminated("MERGE", end_of_word),
+                terminated("MINUTE", end_of_word),
+                terminated("MINUTE_SECOND", end_of_word),
+                terminated("MIN_ROWS", end_of_word),
+            )),
+            alt((
+                terminated("MODE", end_of_word),
+                terminated("MODIFY", end_of_word),
+                terminated("MONTH", end_of_word),
+                terminated("MRG_MYISAM", end_of_word),
+                terminated("MYISAM", end_of_word),
+            )),
         ))
         .parse_next(&mut uc_input),
 
@@ -1080,42 +1120,50 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         .parse_next(&mut uc_input),
 
         'P' => alt((
-            terminated("PACK_KEYS", end_of_word),
-            terminated("PAGE", end_of_word),
-            terminated("PARTIAL", end_of_word),
-            terminated("PARTITION", end_of_word),
-            terminated("PARTITIONS", end_of_word),
-            terminated("PASSWORD", end_of_word),
-            terminated("PRIMARY", end_of_word),
-            terminated("PRIVILEGES", end_of_word),
-            terminated("PROCEDURE", end_of_word),
-            terminated("PROCESS", end_of_word),
-            terminated("PROCESSLIST", end_of_word),
-            terminated("PURGE", end_of_word),
+            alt((
+                terminated("PACK_KEYS", end_of_word),
+                terminated("PAGE", end_of_word),
+                terminated("PARTIAL", end_of_word),
+                terminated("PARTITION", end_of_word),
+                terminated("PARTITIONS", end_of_word),
+                terminated("PASSWORD", end_of_word),
+                terminated("PRIMARY", end_of_word),
+                terminated("PRIVILEGES", end_of_word),
+            )),
+            alt((
+                terminated("PROCEDURE", end_of_word),
+                terminated("PROCESS", end_of_word),
+                terminated("PROCESSLIST", end_of_word),
+                terminated("PURGE", end_of_word),
+            )),
         ))
         .parse_next(&mut uc_input),
 
         'Q' => terminated("QUICK", end_of_word).parse_next(&mut uc_input),
 
         'R' => alt((
-            terminated("RAID0", end_of_word),
-            terminated("RAID_CHUNKS", end_of_word),
-            terminated("RAID_CHUNKSIZE", end_of_word),
-            terminated("RAID_TYPE", end_of_word),
-            terminated("RANGE", end_of_word),
-            terminated("READ", end_of_word),
-            terminated("READ_ONLY", end_of_word),
-            terminated("READ_WRITE", end_of_word),
-            terminated("REFERENCES", end_of_word),
-            terminated("REGEXP", end_of_word),
-            terminated("RELOAD", end_of_word),
-            terminated("RENAME", end_of_word),
-            terminated("REPAIR", end_of_word),
-            terminated("REPEATABLE", end_of_word),
-            terminated("REPLACE", end_of_word),
-            terminated("REPLICATION", end_of_word),
-            terminated("RESET", end_of_word),
             alt((
+                terminated("RAID0", end_of_word),
+                terminated("RAID_CHUNKS", end_of_word),
+                terminated("RAID_CHUNKSIZE", end_of_word),
+                terminated("RAID_TYPE", end_of_word),
+                terminated("RANGE", end_of_word),
+                terminated("READ", end_of_word),
+                terminated("READ_ONLY", end_of_word),
+                terminated("READ_WRITE", end_of_word),
+            )),
+            alt((
+                terminated("REFERENCES", end_of_word),
+                terminated("REGEXP", end_of_word),
+                terminated("RELOAD", end_of_word),
+                terminated("RENAME", end_of_word),
+                terminated("REPAIR", end_of_word),
+                terminated("REPEATABLE", end_of_word),
+                terminated("REPLACE", end_of_word),
+                terminated("REPLICATION", end_of_word),
+            )),
+            alt((
+                terminated("RESET", end_of_word),
                 terminated("RESTORE", end_of_word),
                 terminated("RESTRICT", end_of_word),
                 terminated("RETURN", end_of_word),
@@ -1123,6 +1171,8 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
                 terminated("REVOKE", end_of_word),
                 terminated("RLIKE", end_of_word),
                 terminated("ROLLBACK", end_of_word),
+            )),
+            alt((
                 terminated("ROW", end_of_word),
                 terminated("ROWS", end_of_word),
                 terminated("ROW_FORMAT", end_of_word),
@@ -1131,36 +1181,27 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
         .parse_next(&mut uc_input),
 
         'S' => alt((
-            terminated("SECOND", end_of_word),
-            terminated("SECURITY", end_of_word),
-            terminated("SEPARATOR", end_of_word),
-            terminated("SERIALIZABLE", end_of_word),
-            terminated("SESSION", end_of_word),
-            terminated("SHARE", end_of_word),
-            terminated("SHOW", end_of_word),
-            terminated("SHUTDOWN", end_of_word),
-            terminated("SLAVE", end_of_word),
-            terminated("SONAME", end_of_word),
-            terminated("SOUNDS", end_of_word),
-            terminated("SQL", end_of_word),
-            terminated("SQL_AUTO_IS_NULL", end_of_word),
-            terminated("SQL_BIG_RESULT", end_of_word),
-            terminated("SQL_BIG_SELECTS", end_of_word),
-            terminated("SQL_BIG_TABLES", end_of_word),
-            terminated("SQL_BUFFER_RESULT", end_of_word),
-            terminated("SQL_CACHE", end_of_word),
             alt((
-                terminated("SQL_CALC_FOUND_ROWS", end_of_word),
-                terminated("SQL_LOG_BIN", end_of_word),
-                terminated("SQL_LOG_OFF", end_of_word),
-                terminated("SQL_LOG_UPDATE", end_of_word),
-                terminated("SQL_LOW_PRIORITY_UPDATES", end_of_word),
-                terminated("SQL_MAX_JOIN_SIZE", end_of_word),
-                terminated("SQL_NO_CACHE", end_of_word),
-                terminated("SQL_QUOTE_SHOW_CREATE", end_of_word),
+                terminated("SECOND", end_of_word),
+                terminated("SECURITY", end_of_word),
+                terminated("SEPARATOR", end_of_word),
+                terminated("SERIALIZABLE", end_of_word),
+                terminated("SESSION", end_of_word),
+                terminated("SHARE", end_of_word),
+                terminated("SHOW", end_of_word),
+                terminated("SHUTDOWN", end_of_word),
+            )),
+            alt((
+                terminated("SLAVE", end_of_word),
+                terminated("SONAME", end_of_word),
+                terminated("SOUNDS", end_of_word),
+                terminated("SQL", end_of_word),
+                terminated("SQL_AUTO_IS_NULL", end_of_word),
                 terminated("SQL_BIG_RESULT", end_of_word),
                 terminated("SQL_BIG_SELECTS", end_of_word),
                 terminated("SQL_BIG_TABLES", end_of_word),
+            )),
+            alt((
                 terminated("SQL_BUFFER_RESULT", end_of_word),
                 terminated("SQL_CACHE", end_of_word),
                 terminated("SQL_CALC_FOUND_ROWS", end_of_word),
@@ -1169,42 +1210,65 @@ fn get_plain_reserved_one_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
                 terminated("SQL_LOG_UPDATE", end_of_word),
                 terminated("SQL_LOW_PRIORITY_UPDATES", end_of_word),
                 terminated("SQL_MAX_JOIN_SIZE", end_of_word),
-                alt((
-                    terminated("SQL_NO_CACHE", end_of_word),
-                    terminated("SQL_QUOTE_SHOW_CREATE", end_of_word),
-                    terminated("SQL_SAFE_UPDATES", end_of_word),
-                    terminated("SQL_SELECT_LIMIT", end_of_word),
-                    terminated("SQL_SLAVE_SKIP_COUNTER", end_of_word),
-                    terminated("SQL_SMALL_RESULT", end_of_word),
-                    terminated("SQL_WARNINGS", end_of_word),
-                    terminated("START", end_of_word),
-                    terminated("STARTING", end_of_word),
-                    terminated("STATUS", end_of_word),
-                    terminated("STOP", end_of_word),
-                    terminated("STORAGE", end_of_word),
-                    terminated("STRAIGHT_JOIN", end_of_word),
-                    terminated("STRING", end_of_word),
-                    terminated("STRIPED", end_of_word),
-                    terminated("SUPER", end_of_word),
-                )),
+            )),
+            alt((
+                terminated("SQL_NO_CACHE", end_of_word),
+                terminated("SQL_QUOTE_SHOW_CREATE", end_of_word),
+                terminated("SQL_BIG_RESULT", end_of_word),
+                terminated("SQL_BIG_SELECTS", end_of_word),
+                terminated("SQL_BIG_TABLES", end_of_word),
+                terminated("SQL_BUFFER_RESULT", end_of_word),
+                terminated("SQL_CACHE", end_of_word),
+                terminated("SQL_CALC_FOUND_ROWS", end_of_word),
+            )),
+            alt((
+                terminated("SQL_LOG_BIN", end_of_word),
+                terminated("SQL_LOG_OFF", end_of_word),
+                terminated("SQL_LOG_UPDATE", end_of_word),
+                terminated("SQL_LOW_PRIORITY_UPDATES", end_of_word),
+                terminated("SQL_MAX_JOIN_SIZE", end_of_word),
+                terminated("SQL_NO_CACHE", end_of_word),
+                terminated("SQL_QUOTE_SHOW_CREATE", end_of_word),
+                terminated("SQL_SAFE_UPDATES", end_of_word),
+            )),
+            alt((
+                terminated("SQL_SELECT_LIMIT", end_of_word),
+                terminated("SQL_SLAVE_SKIP_COUNTER", end_of_word),
+                terminated("SQL_SMALL_RESULT", end_of_word),
+                terminated("SQL_WARNINGS", end_of_word),
+                terminated("START", end_of_word),
+                terminated("STARTING", end_of_word),
+                terminated("STATUS", end_of_word),
+                terminated("STOP", end_of_word),
+            )),
+            alt((
+                terminated("STORAGE", end_of_word),
+                terminated("STRAIGHT_JOIN", end_of_word),
+                terminated("STRING", end_of_word),
+                terminated("STRIPED", end_of_word),
+                terminated("SUPER", end_of_word),
             )),
         ))
         .parse_next(&mut uc_input),
 
         'T' => alt((
-            terminated("TABLE", end_of_word),
-            terminated("TABLES", end_of_word),
-            terminated("TEMPORARY", end_of_word),
-            terminated("TERMINATED", end_of_word),
-            terminated("THEN", end_of_word),
-            terminated("TO", end_of_word),
-            terminated("TRAILING", end_of_word),
-            terminated("TRANSACTIONAL", end_of_word),
-            terminated("TRUE", end_of_word),
-            terminated("TRUNCATE", end_of_word),
-            terminated("TYPE", end_of_word),
-            terminated("TYPES", end_of_word),
-            terminated("TBLPROPERTIES", end_of_word),
+            alt((
+                terminated("TABLE", end_of_word),
+                terminated("TABLES", end_of_word),
+                terminated("TEMPORARY", end_of_word),
+                terminated("TERMINATED", end_of_word),
+                terminated("THEN", end_of_word),
+                terminated("TO", end_of_word),
+                terminated("TRAILING", end_of_word),
+                terminated("TRANSACTIONAL", end_of_word),
+            )),
+            alt((
+                terminated("TRUE", end_of_word),
+                terminated("TRUNCATE", end_of_word),
+                terminated("TYPE", end_of_word),
+                terminated("TYPES", end_of_word),
+                terminated("TBLPROPERTIES", end_of_word),
+            )),
         ))
         .parse_next(&mut uc_input),
 
@@ -1287,12 +1351,11 @@ fn get_word_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
 }
 
 fn get_operator_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
-    // Define the allowed operator characters
-    let allowed_operators = (
+    const ALLOWED_OPERATORS: [char; 16] = [
         '!', '<', '>', '=', '|', ':', '-', '~', '*', '&', '@', '^', '?', '#', '/', '%',
-    );
+    ];
 
-    take_while(2..=5, allowed_operators)
+    take_while(2..=5, ALLOWED_OPERATORS)
         .map(|token: &str| Token {
             kind: TokenKind::Operator,
             value: token,
@@ -1323,4 +1386,78 @@ fn end_of_word<'i>(input: &mut &'i str) -> Result<&'i str> {
 
 fn is_word_character(item: char) -> bool {
     item.is_alphanumeric() || item.is_mark() || item.is_punctuation_connector()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tokenize_with_default_options<'a>(input: &'a str) -> Vec<Token<'a>> {
+        tokenize(input, false, &FormatOptions::default())
+    }
+
+    #[test]
+    fn recognizes_reserved_words_from_nested_alt_groups() {
+        let cases = [
+            ("ACCESSIBLE", TokenKind::Reserved),
+            ("CONSTRAINT", TokenKind::Reserved),
+            ("DYNAMIC", TokenKind::Reserved),
+            ("EXTENDED", TokenKind::Reserved),
+            ("FUNCTION", TokenKind::Reserved),
+            ("ISOLATION", TokenKind::Reserved),
+            ("LOW_PRIORITY", TokenKind::Reserved),
+            ("MRG_MYISAM", TokenKind::Reserved),
+            ("PROCESSLIST", TokenKind::Reserved),
+            ("ROW_FORMAT", TokenKind::Reserved),
+            ("SQL_SAFE_UPDATES", TokenKind::Reserved),
+            ("TBLPROPERTIES", TokenKind::Reserved),
+        ];
+
+        for (word, expected_kind) in cases {
+            let tokens = tokenize_with_default_options(word);
+            let token = tokens
+                .iter()
+                .find(|token| token.value == word)
+                .unwrap_or_else(|| panic!("expected tokenizer to emit {word}"));
+
+            assert_eq!(token.kind, expected_kind, "{word}");
+        }
+    }
+
+    #[test]
+    fn recognizes_multi_character_operator_tokens() {
+        let operators = [
+            "!!", "<<", ">>", "==", "||", ":!", "!-", "~~", "**", "&&", "@@", "^^", "??", "!#",
+            "!/", "%%",
+        ];
+
+        for operator in operators {
+            let input = format!("a {operator} b");
+            let tokens = tokenize_with_default_options(&input);
+
+            assert!(
+                tokens
+                    .iter()
+                    .any(|token| token.kind == TokenKind::Operator && token.value == operator),
+                "expected tokenizer to emit operator {operator}"
+            );
+        }
+    }
+
+    #[test]
+    fn preserves_special_reserved_token_categories() {
+        let tokens = tokenize_with_default_options(
+            "LEFT SEMI JOIN ON CONFLICT DO UPDATE SET SQL_SAFE_UPDATES = 1",
+        );
+
+        assert!(tokens.iter().any(
+            |token| token.kind == TokenKind::ReservedNewline && token.value == "LEFT SEMI JOIN"
+        ));
+        assert!(tokens.iter().any(|token| {
+            token.kind == TokenKind::ReservedTopLevel && token.value == "ON CONFLICT"
+        }));
+        assert!(tokens.iter().any(|token| {
+            token.kind == TokenKind::ReservedNewlineAfter && token.value == "DO UPDATE SET"
+        }));
+    }
 }

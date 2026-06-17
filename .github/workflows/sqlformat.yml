@@ -23,7 +23,7 @@ jobs:
           - latest-nightly
         include:
           - conf: minimum
-            toolchain: 1.84.0
+            toolchain: 1.86.0
           - conf: latest-stable
             toolchain: stable
           - conf: latest-beta

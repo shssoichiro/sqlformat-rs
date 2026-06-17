@@ -223,8 +223,7 @@ mod tests {
 
     #[test]
     fn it_formats_over_with_window() {
-        let input =
-            "SELECT id, val, at, SUM(val) OVER win AS cumulative FROM data WINDOW win AS (PARTITION BY id ORDER BY at);";
+        let input = "SELECT id, val, at, SUM(val) OVER win AS cumulative FROM data WINDOW win AS (PARTITION BY id ORDER BY at);";
         let options = FormatOptions::default();
         let expected = indoc!(
             "
@@ -532,8 +531,7 @@ mod tests {
 
     #[test]
     fn it_formats_arrays_as_function_arguments() {
-        let input =
-            "SELECT array_position(ARRAY['sun','mon','tue',  'wed',   'thu','fri',  'sat'], 'mon');";
+        let input = "SELECT array_position(ARRAY['sun','mon','tue',  'wed',   'thu','fri',  'sat'], 'mon');";
         let options = FormatOptions {
             dialect: Dialect::PostgreSql,
             ..Default::default()
@@ -1425,8 +1423,7 @@ mod tests {
 
     #[test]
     fn it_formats_insert_without_into() {
-        let input =
-            "INSERT Customers (ID, MoneyBalance, Address, City) VALUES (12,-123.4, 'Skagen 2111','Stv');";
+        let input = "INSERT Customers (ID, MoneyBalance, Address, City) VALUES (12,-123.4, 'Skagen 2111','Stv');";
         let options = FormatOptions::default();
         let expected = indoc!(
             "
@@ -1527,8 +1524,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_at_variables_with_param_values() {
-        let input =
-            "SELECT @variable, @a1_2.3$, @'var name', @\"var name\", @`var name`, @[var name], @'var\\name';";
+        let input = "SELECT @variable, @a1_2.3$, @'var name', @\"var name\", @`var name`, @[var name], @'var\\name';";
         let params = vec![
             ("variable".to_string(), "\"variable value\"".to_string()),
             ("a1_2.3$".to_string(), "'weird value'".to_string()),

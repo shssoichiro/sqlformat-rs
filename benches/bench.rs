@@ -1,5 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use sqlformat::*;
+use std::hint::black_box;
 
 fn simple_query(c: &mut Criterion) {
     let input = "SELECT * FROM my_table WHERE id = 1";

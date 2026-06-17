@@ -1,4 +1,4 @@
-use crate::{tokenizer::Token, FormatOptions, Indent, SpanInfo};
+use crate::{FormatOptions, Indent, SpanInfo, tokenizer::Token};
 
 #[derive(Debug, Default)]
 struct PreviousTokens<'a> {

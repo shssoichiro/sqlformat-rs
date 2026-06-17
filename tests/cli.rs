@@ -4,9 +4,7 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn sqlformat_bin() -> PathBuf {
-    std::env::var_os("CARGO_BIN_EXE_sqlformat")
-        .map(PathBuf::from)
-        .expect("binary path should be provided by cargo test")
+    PathBuf::from(env!("CARGO_BIN_EXE_sqlformat"))
 }
 
 fn unique_temp_file_path(name: &str) -> PathBuf {

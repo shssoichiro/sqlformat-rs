@@ -1,5 +1,5 @@
-use crate::tokenizer::Token;
 use crate::QueryParams;
+use crate::tokenizer::Token;
 
 pub(crate) struct Params<'a> {
     index: usize,

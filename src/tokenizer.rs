@@ -1,12 +1,12 @@
 use std::borrow::Cow;
 use unicode_categories::UnicodeCategories;
-use winnow::ascii::{digit0, digit1, till_line_ending, Caseless};
+use winnow::Result;
+use winnow::ascii::{Caseless, digit0, digit1, till_line_ending};
 use winnow::combinator::{alt, delimited, dispatch, eof, fail, opt, peek, terminated};
 use winnow::error::ContextError;
 use winnow::error::ParserError;
 use winnow::prelude::*;
 use winnow::token::{any, one_of, rest, take, take_until, take_while};
-use winnow::Result;
 
 use crate::{Dialect, FormatOptions};
 

@@ -2193,6 +2193,22 @@ mod tests {
     }
 
     #[test]
+    fn it_keeps_create_or_replace_statement_together() {
+        let input = "CREATE OR REPLACE VIEW abc AS SELECT * FROM table;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            CREATE OR REPLACE VIEW abc AS
+            SELECT
+              *
+            FROM
+              table;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_pgplsql() {
         let input = "CREATE FUNCTION abc() AS $$ DECLARE a int := 1; b int := 2; BEGIN SELECT * FROM table $$ LANGUAGE plpgsql;";
         let options = FormatOptions::default();

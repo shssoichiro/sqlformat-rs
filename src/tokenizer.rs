@@ -509,7 +509,7 @@ fn get_top_level_reserved_token<'a>(
         // First peek at the first character to determine which group to check
         let first_char = peek(any).parse_next(input)?.to_ascii_uppercase();
 
-        let create_or_replace = (
+        let creatable = (
             "AGGREGATE",
             "FUNCTION",
             "LANGUAGE",
@@ -519,9 +519,7 @@ fn get_top_level_reserved_token<'a>(
             "VIEW",
         );
 
-        let alterable_or_droppable = alt((alt(create_or_replace), "TABLE", "INDEX"));
-        let create_or_replace = alt(create_or_replace);
-
+        let alterable_or_droppable = alt((alt(creatable), "TABLE", "INDEX"));
         // Match keywords based on their first letter
         let result: Result<&str> = match first_char {
             'A' => alt((
@@ -534,7 +532,7 @@ fn get_top_level_reserved_token<'a>(
                 (
                     "CREATE ",
                     alt((
-                        create_or_replace,
+                        (opt("OR REPLACE "), alt(creatable)).take(),
                         (opt("UNIQUE "), "INDEX").take(),
                         (
                             opt(alt((

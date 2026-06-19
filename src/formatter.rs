@@ -709,6 +709,11 @@ impl<'a> Formatter<'a> {
                     full_span += 1;
                     continue;
                 }
+                TokenKind::Operator if token.value == ";" => {
+                    if block_level == self.block_level {
+                        break;
+                    }
+                }
                 TokenKind::Operator if token.value == "," => {
                     if block_level == self.block_level {
                         arguments += 1;

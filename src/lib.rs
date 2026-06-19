@@ -1042,6 +1042,27 @@ mod tests {
     }
 
     #[test]
+    fn it_stops_top_level_span_at_semicolons() {
+        let input = indoc!(
+            r#"
+            DROP TABLE IF EXISTS "public"."some_table";
+
+            -- this comment is long enough to exceed the inline top level limit
+            "#
+        );
+        let options = FormatOptions {
+            max_inline_top_level: Some(80),
+            ..Default::default()
+        };
+        let output = indoc!(
+            r#"
+            DROP TABLE IF EXISTS "public"."some_table";
+            -- this comment is long enough to exceed the inline top level limit"#
+        );
+        assert_eq!(format(input, &QueryParams::None, &options), output);
+    }
+
+    #[test]
     fn it_formats_incomplete_query() {
         let input = "SELECT count(";
         let options = FormatOptions::default();

@@ -879,6 +879,23 @@ mod tests {
     }
 
     #[test]
+    fn it_keeps_semicolon_after_do_nothing() {
+        let input = "INSERT INTO foo (id) VALUES (1) ON CONFLICT DO NOTHING ;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            INSERT INTO
+              foo (id)
+            VALUES
+              (1)
+            ON CONFLICT
+              DO NOTHING;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_keeps_short_parenthesized_list_with_nested_parenthesis_on_single_line() {
         let input = "SELECT (a + b * (c - NOW()));";
         let options = FormatOptions::default();
@@ -1928,6 +1945,21 @@ mod tests {
               WHEN option = 'baz' THEN 3
               ELSE 4
             END;"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
+    fn it_formats_end_case_as_case_terminator() {
+        let input = "CASE WHEN option = 'foo' THEN 1 ELSE 2 END CASE;";
+        let options = FormatOptions::default();
+        let expected = indoc!(
+            "
+            CASE
+              WHEN option = 'foo' THEN 1
+              ELSE 2
+            END CASE;"
         );
 
         assert_eq!(format(input, &QueryParams::None, &options), expected);

@@ -303,11 +303,18 @@ fn get_open_paren_token<'i>(input: &mut &'i str, dialect: Dialect) -> Result<Tok
 }
 
 fn get_close_paren_token<'i>(input: &mut &'i str, dialect: Dialect) -> Result<Token<'i>> {
+    let end_case = (
+        Caseless("END"),
+        take_while(1.., char::is_whitespace),
+        Caseless("CASE"),
+        end_of_word,
+    )
+        .take();
     let end = terminated(Caseless("END"), end_of_word);
     let close_paren = if dialect == Dialect::PostgreSql {
-        (")", "]", end)
+        (")", "]", end_case, end)
     } else {
-        (")", ")", end)
+        (")", ")", end_case, end)
     };
     alt(close_paren).parse_next(input).map(|token| Token {
         kind: TokenKind::CloseParen,
@@ -746,10 +753,7 @@ fn get_newline_after_reserved_token<'a>() -> impl Parser<&'a str, Token<'a>, Con
         let uc_input: String = get_uc_words(input, 3);
         let mut uc_input = uc_input.as_str();
 
-        let mut on_conflict = alt((
-            terminated("DO NOTHING", end_of_word),
-            terminated("DO UPDATE SET", end_of_word),
-        ));
+        let mut on_conflict = terminated("DO UPDATE SET", end_of_word);
 
         let result: Result<&str> = on_conflict.parse_next(&mut uc_input);
 
@@ -1316,6 +1320,7 @@ fn get_plain_reserved_two_token<'i>(input: &mut &'i str) -> Result<Token<'i>> {
     let mut uc_input = uc_input.as_str();
     let result: Result<&str> = alt((
         terminated("CHARACTER SET", end_of_word),
+        terminated("DO NOTHING", end_of_word),
         terminated("ON CONFLICT", end_of_word),
         terminated("ON CONSTRAINT", end_of_word),
         terminated("ON DELETE", end_of_word),

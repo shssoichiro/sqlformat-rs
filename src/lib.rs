@@ -2412,6 +2412,31 @@ mod tests {
     }
 
     #[test]
+    fn it_recognizes_on_delete_set_null_clause() {
+        let input = indoc!(
+            "CREATE TABLE t (
+              c1 INT REFERENCES r (id) ON DELETE SET NULL,
+              c2 TEXT
+            );"
+        );
+        let options = FormatOptions {
+            uppercase: Some(true),
+            lines_between_queries: 2,
+            max_inline_top_level: Some(80),
+            ..Default::default()
+        };
+        let expected = indoc!(
+            "
+          CREATE TABLE t (
+            c1 INT REFERENCES r (id) ON DELETE SET NULL,
+            c2 TEXT
+          );"
+        );
+
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn it_formats_except_on_columns() {
         let input = indoc!(
             "SELECT table_0.* EXCEPT (profit),

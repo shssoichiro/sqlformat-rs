@@ -738,9 +738,10 @@ impl<'a> Formatter<'a> {
 
         // if we are going to format a list of arguments take in account also the limit for
         // arguments
-        let arguments_limit = self.options.max_inline_arguments.unwrap_or(0);
-        let newline_after = if arguments > 1 && arguments_limit != 0 {
-            arguments_limit.min(limit) < full_span
+        let newline_after = if arguments > 1 {
+            self.options
+                .max_inline_arguments
+                .is_none_or(|arguments_limit| arguments_limit.min(limit) < full_span)
         } else {
             limit < full_span
         };

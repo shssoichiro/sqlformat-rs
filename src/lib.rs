@@ -320,6 +320,24 @@ mod tests {
     }
 
     #[test]
+    fn keep_multiline_top_level_arguments_indented() {
+        let input = "SELECT * FROM table1 GROUP BY column1, column2;";
+        let options = FormatOptions {
+            max_inline_top_level: Some(80),
+            ..Default::default()
+        };
+        let expected = indoc! {
+            "
+            SELECT *
+            FROM table1
+            GROUP BY
+              column1,
+              column2;"
+        };
+        assert_eq!(format(input, &QueryParams::None, &options), expected);
+    }
+
+    #[test]
     fn inline_arguments_when_possible() {
         let input = indoc! {
             "

@@ -295,9 +295,9 @@ dependencies = [
 
 [[package]]
 name = "indoc"
-version = "2.0.7"
+version = "2.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79cf5c93f93228cf8efb3ba362535fb11199ac548a09ce117c9b1adc3030d706"
+checksum = "a37b2691796cffeb8a8cd305ac66e65841559f147f4e63231d0eafa4db5384d1"
 dependencies = [
  "rustversion",
 ]
@@ -357,9 +357,9 @@ dependencies = [
 
 [[package]]
 name = "okhsl"
-version = "1.0.1"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "352b29540625e01082ef383e7964d14c70159527f54bce0afb387ac17bd6ce4e"
+checksum = "6ea70d075ef81a1bbb2dd2c31d87c88282459613a890388cbf8ee2c722c493a9"
 dependencies = [
  "oklab",
  "rgb",

@@ -182,6 +182,21 @@ fn issue_633_3(c: &mut Criterion) {
     });
 }
 
+fn many_statements(c: &mut Criterion) {
+    let input =
+        "select a, b from t left join u on t.id = u.id where a = 1 and b = 2; ".repeat(1000);
+
+    c.bench_function("many statements", |b| {
+        b.iter(|| {
+            format(
+                black_box(&input),
+                black_box(&QueryParams::None),
+                black_box(&FormatOptions::default()),
+            )
+        })
+    });
+}
+
 criterion_group!(
     benches,
     simple_query,
@@ -191,6 +206,7 @@ criterion_group!(
     query_with_implicit_indexed_params,
     issue_633,
     issue_633_2,
-    issue_633_3
+    issue_633_3,
+    many_statements
 );
 criterion_main!(benches);

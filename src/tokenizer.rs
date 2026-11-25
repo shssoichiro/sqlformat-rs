@@ -500,9 +500,18 @@ fn get_uc_words(input: &str, words: usize) -> String {
         .to_ascii_uppercase()
 }
 
+/// Same result as `input.to_ascii_uppercase().find(word)` for an uppercase `word`,
+/// but stops at the first match instead of copying the whole remaining input.
+fn find_ignore_ascii_case(input: &str, word: &str) -> Option<usize> {
+    input
+        .as_bytes()
+        .windows(word.len())
+        .position(|bytes| bytes.eq_ignore_ascii_case(word.as_bytes()))
+}
+
 fn finalize<'a>(input: &mut &'a str, token: &str) -> &'a str {
     let final_word = token.split_whitespace().last().unwrap_or(token);
-    let input_end_pos = input.to_ascii_uppercase().find(final_word).unwrap_or(0) + final_word.len();
+    let input_end_pos = find_ignore_ascii_case(input, final_word).unwrap_or(0) + final_word.len();
     input.next_slice(input_end_pos)
 }
 
@@ -733,7 +742,7 @@ fn get_join_token<'a>() -> impl Parser<&'a str, Token<'a>, ContextError> {
         if let Ok(token) = result {
             let final_word = token.split(' ').next_back().unwrap();
             let input_end_pos =
-                input.to_ascii_uppercase().find(final_word).unwrap() + final_word.len();
+                find_ignore_ascii_case(input, final_word).unwrap() + final_word.len();
             let token = input.next_slice(input_end_pos);
             let kind = TokenKind::Join;
             Ok(Token {
